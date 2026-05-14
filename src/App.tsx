@@ -45,18 +45,21 @@ export default function App() {
         await loginWithEmail(email, password);
       } else {
         await registerWithEmail(email, password);
-        alert('Usuario "' + username + '" creado con éxito. Ya puedes entrar.');
+        alert('Usuario "' + username + '" creado con éxito. Ahora puedes entrar.');
         setAuthMode('login');
       }
     } catch (error: any) {
+      console.error("Auth Error:", error.code, error.message);
       if (error.code === 'auth/user-not-found') {
-        setLoginError('Usuario no encontrado. Si es nuevo, regístralo primero en la pestaña "Registrarse".');
+        setLoginError('Usuario no encontrado. Asegúrate de REGISTRARLO primero en la pestaña de al lado.');
       } else if (error.code === 'auth/wrong-password') {
         setLoginError('Contraseña incorrecta.');
       } else if (error.code === 'auth/email-already-in-use') {
-        setLoginError('Este usuario ya existe. Intenta entrar con la pestaña "Entrar".');
+        setLoginError('Este usuario ya existe. Intenta entrar directamente.');
+      } else if (error.code === 'auth/operation-not-allowed') {
+        setLoginError('El acceso por contraseña está desactivado en Firebase. Actívalo en la Consola (Authentication > Sign-in method).');
       } else if (error.code === 'auth/weak-password') {
-        setLoginError('La contraseña debe tener al menos 6 caracteres.');
+        setLoginError('La contraseña es muy corta (mínimo 6 caracteres).');
       } else {
         setLoginError('Error: ' + (error.message || 'Intente nuevamente'));
       }
