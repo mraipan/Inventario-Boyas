@@ -1,25 +1,34 @@
-# Security Specification - Gestor de Inventario Pro
+# Security Specification & TDD
 
-## Data Invariants
-1. Un producto debe tener un número de serie único (garantizado al usar la serie como ID del documento).
-2. Un producto debe estar asociado a una ubicación válida.
-3. Los movimientos son registros históricos inmutables una vez creados.
-4. Solo usuarios autenticados pueden realizar operaciones.
-5. Los campos `createdAt` y `updatedAt` deben ser validados con el tiempo del servidor.
+## 1. Data Invariants
+- **Products**: Must belong to a valid user (`createdBy`). Document ID must match the `serie` field. 
+- **Movements**: Immutable registry. Must record the user's email accurately.
+- **Locations**: Basic organization units.
 
-## The "Dirty Dozen" Payloads (Anti-Patterns)
-1. **Identidad Suplantada**: Intentar crear un producto con `createdBy` diferente al UID del usuario.
-2. **Inyección de IDs**: Usar una serie de 2KB de caracteres basura.
-3. **Salto de Estado**: Cambiar un movimiento ya registrado.
-4. **Referencia Huérfana**: Crear un producto con un `ubicacionId` inexistente.
-5. **Modificación de Inmutables**: Intentar cambiar la `serie` de un producto existente.
-6. **Shadow Update**: Enviar un campo `isAdmin: true` en el perfil de usuario o producto.
-7. **Fecha Client-Side**: Enviar un `updatedAt` del pasado o futuro desde el cliente.
-8. **Lectura Masiva**: Intentar listar productos sin estar autenticado.
-9. **Eliminación sin Permiso**: Intentar borrar una ubicación que tiene productos asociados (esto se manejará en la lógica de la app, pero las reglas deben proteger la integridad).
-10. **Enumeración de IDs**: Intentar adivinar IDs de ubicaciones privadas.
-11. **Tipo de Dato Erróneo**: Enviar `fechaCalibracion` como un booleano.
-12. **Sobre-escritura de Serie**: Intentar crear un producto con una serie que ya existe (el SDK `setDoc` con merge false fallaría si las reglas lo protegen).
+## 2. The "Dirty Dozen" Payloads (Denial Expected)
 
-## Test Runner Plan
-Verificar que todas las operaciones requieran `request.auth != null` y validen tipos y tamaños.
+### Identity Spoofing
+1. **Product with wrong owner**: Attempt to create product with `createdBy` != `request.auth.uid`.
+2. **Movement with wrong email**: Attempt to create movement with `userEmail` != `request.auth.token.email`.
+
+### Integrity Violations
+3. **Product with Shadow Field**: Attempt to create product with an extra field `isAdmin: true`.
+4. **Location with missing field**: Attempt to create location without `nombreCliente`.
+5. **Product ID mismatch**: Attempt to create product where doc ID != `serie`.
+
+### State Shortcutting
+6. **Immutable Field Update**: Attempt to update product's `createdAt`.
+7. **Bypassing Server Timestamp**: Attempt to update product with a fixed `updatedAt` instead of `request.time`.
+
+### Resource Poisoning
+8. **Massive ID**: Attempt to create product with 2KB series ID.
+9. **Junk String**: Attempt to set `nombre` to a 1MB string.
+
+### Unauthorized Access
+10. **Public Read**: Attempt to list `products` without authentication.
+11. **Cross-User Update**: User A attempts to update Product owned by User B (if we enforce ownership, though currently it seems more like a shared environment for a single team). *Correction*: The app seems to be for common use, but we should at least ensure authentication.
+12. **System Field Injection**: Attempt to create movement with a fake `timestamp`.
+
+## 3. Test Runner Concept (firestore.rules)
+Wait, the instructions ask for `firestore.rules.test.ts`. I'll create it later if I can run it.
+For now, let's focus on the rules.

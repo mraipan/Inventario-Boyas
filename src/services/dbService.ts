@@ -127,13 +127,19 @@ export const dbService = {
   async addLocation(location: Omit<Location, 'createdAt' | 'createdBy' | 'id'>) {
     const path = 'locations';
     try {
+      if (!auth.currentUser) throw new Error("Usuario no autenticado");
+      
       const { id: _, createdAt: __, createdBy: ___, ...dataToAdd } = location as any;
-      await addDoc(collection(db, path), {
+      const payload = {
         ...dataToAdd,
         createdAt: serverTimestamp(),
-        createdBy: auth.currentUser?.uid
-      });
+        createdBy: auth.currentUser.uid
+      };
+      
+      console.log('Attempting to add location:', payload);
+      await addDoc(collection(db, path), payload);
     } catch (error) {
+      console.error('Add location error details:', error);
       handleFirestoreError(error, OperationType.WRITE, path);
     }
   },
@@ -141,12 +147,18 @@ export const dbService = {
   async updateLocation(id: string, updates: Partial<Location>) {
     const path = `locations/${id}`;
     try {
+      if (!auth.currentUser) throw new Error("Usuario no autenticado");
+
       const { id: _, createdAt: __, createdBy: ___, ...dataToUpdate } = updates as any;
-      await updateDoc(doc(db, 'locations', id), {
+      const payload = {
         ...dataToUpdate,
         updatedAt: serverTimestamp()
-      });
+      };
+
+      console.log('Attempting to update location:', id, payload);
+      await updateDoc(doc(db, 'locations', id), payload);
     } catch (error) {
+      console.error('Update location error details:', error);
       handleFirestoreError(error, OperationType.WRITE, path);
     }
   },

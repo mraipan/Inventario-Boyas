@@ -2,5 +2,5 @@
   "name": "Inventario Boyas Oceanograficas",
   "description": "Sistema avanzado para el registro, seguimiento y reporte de boyas oceanográficas con gestión de ubicaciones y calibraciones.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

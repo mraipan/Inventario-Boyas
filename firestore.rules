@@ -1,16 +1,15 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // --- Global Safety Net ---
     match /{document=**} {
       allow read, write: if false;
     }
 
+    // --- Helpers ---
     function isSignedIn() {
       return request.auth != null;
-    }
-
-    match /test/{document=**} {
-      allow read: if isSignedIn();
     }
 
     function isValidId(id) {
@@ -27,6 +26,7 @@ service cloud.firestore {
 
     // --- Product Logic ---
     function isValidProduct(data) {
+      // Must have exactly these fields on create
       return data.keys().hasAll(['nombre', 'marca', 'modelo', 'serie', 'estado', 'ubicacionId', 'createdAt', 'createdBy'])
         && data.nombre is string && data.nombre.size() <= 200
         && data.marca is string && data.marca.size() <= 100
@@ -37,12 +37,11 @@ service cloud.firestore {
         && (data.get('fechaCalibracion', '') is string && data.get('fechaCalibracion', '').size() <= 50)
         && (data.get('documentoCalibracionUrl', '') is string && data.get('documentoCalibracionUrl', '').size() <= 1000)
         && data.createdAt is timestamp
-        && data.createdBy is string && data.createdBy.size() <= 100;
+        && data.createdBy is string && data.createdBy.size() <= 128;
     }
 
     match /products/{productId} {
-      allow list: if isSignedIn();
-      allow get: if isSignedIn();
+      allow list, get: if isSignedIn();
       
       allow create: if isSignedIn() 
         && isValidId(productId) 
@@ -58,7 +57,6 @@ service cloud.firestore {
         && incoming().createdAt == existing().createdAt
         && (incoming().get('updatedAt', null) == request.time)
         && (
-          // Update action: general edit
           incoming().diff(existing()).affectedKeys().hasOnly(['nombre', 'marca', 'modelo', 'estado', 'ubicacionId', 'fechaCalibracion', 'documentoCalibracionUrl', 'updatedAt'])
         );
         
@@ -67,21 +65,19 @@ service cloud.firestore {
 
     // --- Location Logic ---
     function isValidLocation(data) {
-      return (data.get('nombreCliente', '') is string && data.get('nombreCliente', '').size() <= 200)
-        && (data.get('region', '') is string && data.get('region', '').size() <= 100)
-        && (data.get('ciudad', '') is string && data.get('ciudad', '').size() <= 100)
-        && (data.get('centro', '') is string && data.get('centro', '').size() <= 100)
-        && (data.get('createdAt', request.time) is timestamp)
-        && (data.get('createdBy', 'default') is string && data.get('createdBy', 'default').size() <= 128)
-        && (data.get('updatedAt', request.time) is timestamp);
+      return data.nombreCliente is string && data.nombreCliente.size() <= 200
+        && data.region is string && data.region.size() <= 100
+        && data.ciudad is string && data.ciudad.size() <= 100
+        && data.centro is string && data.centro.size() <= 100
+        && data.createdAt is timestamp
+        && data.createdBy is string && data.createdBy.size() <= 128;
     }
 
     match /locations/{locationId} {
-      allow list: if isSignedIn();
-      allow get: if isSignedIn();
+      allow list, get: if isSignedIn();
+      
       allow create: if isSignedIn()
         && isValidId(locationId)
-        && incoming().keys().hasAll(['nombreCliente', 'region', 'ciudad', 'centro', 'createdAt', 'createdBy'])
         && isValidLocation(incoming())
         && incoming().createdAt == request.time
         && incoming().createdBy == request.auth.uid;
@@ -100,23 +96,29 @@ service cloud.firestore {
 
     // --- Movement Logic ---
     function isValidMovement(data) {
-      return data.keys().hasAll(['productId', 'productName', 'type', 'timestamp', 'description', 'userEmail'])
-        && data.productId is string && data.productId.size() <= 128
-        && data.productName is string && data.productName.size() <= 200
-        && data.type in ['create', 'update', 'delete']
-        && data.timestamp == request.time
-        && data.description is string && data.description.size() <= 1000
-        && data.userEmail == request.auth.token.email;
+      return (data.productId is string && data.productId.size() <= 128)
+        && (data.productName is string && data.productName.size() <= 200)
+        && (data.type in ['create', 'update', 'delete'])
+        && (data.timestamp is timestamp)
+        && (data.description is string && data.description.size() <= 1000)
+        && (data.userEmail is string && data.userEmail.size() <= 200);
     }
 
     match /movements/{movementId} {
-      allow list: if isSignedIn();
-      allow get: if isSignedIn();
+      allow list, get: if isSignedIn();
+      
       allow create: if isSignedIn()
         && isValidId(movementId)
-        && isValidMovement(incoming());
+        && isValidMovement(incoming())
+        && incoming().timestamp == request.time
+        && incoming().userEmail == request.auth.token.email;
       
       allow update, delete: if false;
+    }
+
+    // --- Test Connection ---
+    match /test/connection {
+      allow get: if isSignedIn();
     }
   }
 }

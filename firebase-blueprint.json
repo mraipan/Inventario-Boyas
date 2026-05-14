@@ -17,7 +17,7 @@
         "updatedAt": { "type": "string", "format": "date-time" },
         "createdBy": { "type": "string" }
       },
-      "required": ["nombre", "marca", "modelo", "serie", "estado", "ubicacionId"]
+      "required": ["nombre", "marca", "modelo", "serie", "estado", "ubicacionId", "createdAt", "createdBy"]
     },
     "Location": {
       "title": "Ubicación",
@@ -29,9 +29,10 @@
         "ciudad": { "type": "string", "description": "Ciudad de ubicación" },
         "centro": { "type": "string", "description": "Centro o sede específica" },
         "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
         "createdBy": { "type": "string" }
       },
-      "required": ["nombreCliente", "region", "ciudad", "centro"]
+      "required": ["nombreCliente", "region", "ciudad", "centro", "createdAt", "createdBy"]
     },
     "Movement": {
       "title": "Movimiento",
