@@ -34,7 +34,7 @@ export function LocationManager() {
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-2">
         <div>
           <h1 className="text-2xl md:text-3xl font-light tracking-tight">Gestión de <span className="font-bold">Ubicaciones</span></h1>
-          <p className="text-[10px] font-mono opacity-50 uppercase tracking-widest mt-1">Configuración de Sedes y Clientes</p>
+          <p className="text-[10px] font-mono opacity-50 uppercase tracking-widest mt-1">Configuración de centros y Clientes</p>
         </div>
         <button
           onClick={() => { setEditingLocation(null); setIsModalOpen(true); }}

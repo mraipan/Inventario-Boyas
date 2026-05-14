@@ -11,10 +11,11 @@ import { Dashboard } from './components/Dashboard';
 import { Inventory } from './components/Inventory';
 import { LocationManager } from './components/LocationManager';
 import { Reports } from './components/Reports';
-import { Package, MapPin, BarChart3, History, LogIn, LogOut, ShieldCheck, UserPlus, Menu, X } from 'lucide-react';
+import { SensorsPerBuoy } from './components/SensorsPerBuoy';
+import { Package, MapPin, BarChart3, History, LogIn, LogOut, ShieldCheck, UserPlus, Menu, X, Cpu } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-type View = 'dashboard' | 'inventory' | 'locations' | 'reports';
+type View = 'dashboard' | 'inventory' | 'locations' | 'reports' | 'sensors';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -242,6 +243,12 @@ export default function App() {
               label="Ubicaciones"
             />
             <NavButton 
+              active={currentView === 'sensors'} 
+              onClick={() => { setCurrentView('sensors'); setIsSidebarOpen(false); }}
+              icon={<Cpu size={18} />}
+              label="Sensores por Boya"
+            />
+            <NavButton 
               active={currentView === 'reports'} 
               onClick={() => { setCurrentView('reports'); setIsSidebarOpen(false); }}
               icon={<History size={18} />}
@@ -284,6 +291,7 @@ export default function App() {
                 {currentView === 'dashboard' && <Dashboard onNavigate={setCurrentView} />}
                 {currentView === 'inventory' && <Inventory />}
                 {currentView === 'locations' && <LocationManager />}
+                {currentView === 'sensors' && <SensorsPerBuoy />}
                 {currentView === 'reports' && <Reports />}
               </div>
             </motion.div>

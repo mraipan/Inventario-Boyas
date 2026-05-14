@@ -53,7 +53,7 @@ export function Inventory() {
         </button>
       </header>
 
-      <div className="flex gap-4">
+      <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1 group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 opacity-30 group-focus-within:opacity-100 group-focus-within:text-cyan-400 transition-all" size={18} />
           <input
