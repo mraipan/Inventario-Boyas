@@ -4,14 +4,14 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth, login, logout, loginWithEmail } from './firebase';
+import { onAuthStateChanged, User, signInAnonymously } from 'firebase/auth';
+import { auth, login, logout, loginWithEmail, registerWithEmail } from './firebase';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
 import { Inventory } from './components/Inventory';
 import { LocationManager } from './components/LocationManager';
 import { Reports } from './components/Reports';
-import { Package, MapPin, BarChart3, History, LogIn, LogOut, ShieldCheck } from 'lucide-react';
+import { Package, MapPin, BarChart3, History, LogIn, LogOut, ShieldCheck, UserPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 type View = 'dashboard' | 'inventory' | 'locations' | 'reports';
@@ -23,6 +23,7 @@ export default function App() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -32,15 +33,33 @@ export default function App() {
     return unsubscribe;
   }, []);
 
-  const handleTestLogin = async (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
+    
+    // Mapeo de usuario simple a email para compatibilidad con Firebase Auth
+    const email = username.toLowerCase().includes('@') ? username.toLowerCase() : `${username.toLowerCase()}@demo.com`;
+
     try {
-      // Map 'marco' to an email for Firebase Auth compatibility
-      const email = username === 'marco' ? 'marco@test.com' : username;
-      await loginWithEmail(email, password);
+      if (authMode === 'login') {
+        await loginWithEmail(email, password);
+      } else {
+        await registerWithEmail(email, password);
+        alert('Usuario "' + username + '" creado con éxito. Ya puedes entrar.');
+        setAuthMode('login');
+      }
     } catch (error: any) {
-      setLoginError('Error: ' + (error.message || 'Credenciales inválidas'));
+      if (error.code === 'auth/user-not-found') {
+        setLoginError('Usuario no encontrado. Si es nuevo, regístralo primero en la pestaña "Registrarse".');
+      } else if (error.code === 'auth/wrong-password') {
+        setLoginError('Contraseña incorrecta.');
+      } else if (error.code === 'auth/email-already-in-use') {
+        setLoginError('Este usuario ya existe. Intenta entrar con la pestaña "Entrar".');
+      } else if (error.code === 'auth/weak-password') {
+        setLoginError('La contraseña debe tener al menos 6 caracteres.');
+      } else {
+        setLoginError('Error: ' + (error.message || 'Intente nuevamente'));
+      }
     }
   };
 
@@ -83,29 +102,31 @@ export default function App() {
           </p>
 
           <div className="space-y-6">
-            <button
-              onClick={login}
-              id="login-button"
-              className="w-full flex items-center justify-center gap-2 bg-white text-[#0f172a] py-3 px-6 rounded-2xl hover:bg-cyan-50 transition-colors font-bold text-sm tracking-wider"
-            >
-              <LogIn size={18} />
-              Entrar con Google
-            </button>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10"></div></div>
-              <div className="relative flex justify-center text-[10px] uppercase tracking-widest"><span className="bg-[#1e293b] px-3 opacity-40">O acceso de pruebas</span></div>
+            <div className="flex bg-white/5 p-1 rounded-xl">
+              <button 
+                onClick={() => setAuthMode('login')}
+                className={`flex-1 py-2 text-[10px] uppercase font-bold tracking-widest rounded-lg transition-all ${authMode === 'login' ? 'bg-white text-[#0f172a]' : 'opacity-40 hover:opacity-100'}`}
+              >
+                Entrar
+              </button>
+              <button 
+                onClick={() => setAuthMode('register')}
+                className={`flex-1 py-2 text-[10px] uppercase font-bold tracking-widest rounded-lg transition-all ${authMode === 'register' ? 'bg-white text-[#0f172a]' : 'opacity-40 hover:opacity-100'}`}
+              >
+                Registrarse
+              </button>
             </div>
 
-            <form onSubmit={handleTestLogin} className="space-y-4">
+            <form onSubmit={handleAuth} className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-mono uppercase opacity-40 ml-1">Usuario</label>
                 <input 
                   type="text" 
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="marco"
+                  placeholder="Ej: marco"
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-white/40"
+                  required
                 />
               </div>
               <div className="space-y-1.5">
@@ -116,19 +137,33 @@ export default function App() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••"
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-white/40"
+                  required
                 />
               </div>
               
-              {loginError && <p className="text-[10px] text-red-400 text-center uppercase tracking-wider">{loginError}</p>}
+              {loginError && <p className="text-[10px] text-red-400 text-center uppercase tracking-wider font-bold max-w-xs mx-auto leading-tight">{loginError}</p>}
 
               <button
                 type="submit"
                 className="w-full flex items-center justify-center gap-2 bg-white/10 text-white py-3 px-6 rounded-2xl hover:bg-white/20 transition-colors font-bold text-sm tracking-wider"
               >
-                <ShieldCheck size={18} />
-                Acceder (Demo)
+                {authMode === 'login' ? <ShieldCheck size={18} /> : <UserPlus size={18} />}
+                {authMode === 'login' ? 'Acceder al Sistema' : 'Crear Cuenta Demo'}
               </button>
             </form>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10"></div></div>
+              <div className="relative flex justify-center text-[10px] uppercase tracking-widest"><span className="bg-[#1e293b] px-3 opacity-40 text-white">O usa tu cuenta de</span></div>
+            </div>
+
+            <button
+              onClick={login}
+              className="w-full flex items-center justify-center gap-2 bg-white text-[#0f172a] py-3 px-6 rounded-2xl hover:bg-cyan-50 transition-colors font-bold text-sm tracking-wider"
+            >
+              <LogIn size={18} />
+              Google Login
+            </button>
           </div>
         </motion.div>
       </div>
