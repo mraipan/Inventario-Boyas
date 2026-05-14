@@ -73,7 +73,8 @@ service cloud.firestore {
         && data.ciudad is string && data.ciudad.size() <= 100
         && data.centro is string && data.centro.size() <= 100
         && data.createdAt is timestamp
-        && data.createdBy is string && data.createdBy.size() <= 128;
+        && data.createdBy is string && data.createdBy.size() <= 128
+        && (data.get('updatedAt', request.time) is timestamp);
     }
 
     match /locations/{locationId} {
@@ -89,8 +90,9 @@ service cloud.firestore {
         && isValidLocation(incoming())
         && incoming().createdAt == existing().createdAt
         && incoming().createdBy == existing().createdBy
+        && (incoming().get('updatedAt', null) == request.time)
         && (
-          incoming().diff(existing()).affectedKeys().hasOnly(['nombreCliente', 'region', 'ciudad', 'centro'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['nombreCliente', 'region', 'ciudad', 'centro', 'updatedAt'])
         );
       
       allow delete: if isSignedIn();

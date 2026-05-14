@@ -69,8 +69,10 @@ export const dbService = {
   async addProduct(product: Omit<Product, 'createdAt' | 'createdBy' | 'id'>) {
     const path = `products/${product.serie}`;
     try {
+      // Ensure we don't send extra fields if they sneak in via 'as any'
+      const { id: _, createdAt: __, createdBy: ___, ...cleanProduct } = product as any;
       const newProduct = {
-        ...product,
+        ...cleanProduct,
         createdAt: serverTimestamp(),
         createdBy: auth.currentUser?.uid
       };
@@ -84,7 +86,7 @@ export const dbService = {
   async updateProduct(id: string, updates: Partial<Product>) {
     const path = `products/${id}`;
     try {
-      const { id: _, ...dataToUpdate } = updates as any;
+      const { id: _, createdAt: __, createdBy: ___, ...dataToUpdate } = updates as any;
       const productRef = doc(db, 'products', id);
       const productSnap = await getDoc(productRef);
       const oldData = productSnap.data();
@@ -125,7 +127,7 @@ export const dbService = {
   async addLocation(location: Omit<Location, 'createdAt' | 'createdBy' | 'id'>) {
     const path = 'locations';
     try {
-      const { id: _, ...dataToAdd } = location as any;
+      const { id: _, createdAt: __, createdBy: ___, ...dataToAdd } = location as any;
       await addDoc(collection(db, path), {
         ...dataToAdd,
         createdAt: serverTimestamp(),
@@ -139,8 +141,11 @@ export const dbService = {
   async updateLocation(id: string, updates: Partial<Location>) {
     const path = `locations/${id}`;
     try {
-      const { id: _, ...dataToUpdate } = updates as any;
-      await updateDoc(doc(db, 'locations', id), dataToUpdate);
+      const { id: _, createdAt: __, createdBy: ___, ...dataToUpdate } = updates as any;
+      await updateDoc(doc(db, 'locations', id), {
+        ...dataToUpdate,
+        updatedAt: serverTimestamp()
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, path);
     }
