@@ -84,12 +84,13 @@ export const dbService = {
   async updateProduct(id: string, updates: Partial<Product>) {
     const path = `products/${id}`;
     try {
+      const { id: _, ...dataToUpdate } = updates as any;
       const productRef = doc(db, 'products', id);
       const productSnap = await getDoc(productRef);
       const oldData = productSnap.data();
 
       const finalUpdates = {
-        ...updates,
+        ...dataToUpdate,
         updatedAt: serverTimestamp()
       };
       await updateDoc(productRef, finalUpdates);
@@ -124,8 +125,9 @@ export const dbService = {
   async addLocation(location: Omit<Location, 'createdAt' | 'createdBy' | 'id'>) {
     const path = 'locations';
     try {
+      const { id: _, ...dataToAdd } = location as any;
       await addDoc(collection(db, path), {
-        ...location,
+        ...dataToAdd,
         createdAt: serverTimestamp(),
         createdBy: auth.currentUser?.uid
       });
@@ -137,7 +139,8 @@ export const dbService = {
   async updateLocation(id: string, updates: Partial<Location>) {
     const path = `locations/${id}`;
     try {
-      await updateDoc(doc(db, 'locations', id), updates);
+      const { id: _, ...dataToUpdate } = updates as any;
+      await updateDoc(doc(db, 'locations', id), dataToUpdate);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, path);
     }

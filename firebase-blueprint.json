@@ -26,11 +26,12 @@
       "properties": {
         "nombreCliente": { "type": "string", "description": "Nombre del cliente" },
         "region": { "type": "string", "description": "Región de ubicación" },
+        "ciudad": { "type": "string", "description": "Ciudad de ubicación" },
         "centro": { "type": "string", "description": "Centro o sede específica" },
         "createdAt": { "type": "string", "format": "date-time" },
         "createdBy": { "type": "string" }
       },
-      "required": ["nombreCliente", "region", "centro"]
+      "required": ["nombreCliente", "region", "ciudad", "centro"]
     },
     "Movement": {
       "title": "Movimiento",

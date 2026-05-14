@@ -67,11 +67,13 @@ service cloud.firestore {
 
     // --- Location Logic ---
     function isValidLocation(data) {
-      return data.keys().hasAll(['nombreCliente', 'region', 'centro', 'createdAt'])
+      return data.keys().hasAll(['nombreCliente', 'region', 'ciudad', 'centro', 'createdAt', 'createdBy'])
         && data.nombreCliente is string && data.nombreCliente.size() <= 200
         && data.region is string && data.region.size() <= 100
+        && data.ciudad is string && data.ciudad.size() <= 100
         && data.centro is string && data.centro.size() <= 100
-        && data.createdAt is timestamp;
+        && data.createdAt is timestamp
+        && data.createdBy is string && data.createdBy.size() <= 128;
     }
 
     match /locations/{locationId} {
@@ -80,13 +82,15 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && isValidId(locationId)
         && isValidLocation(incoming())
-        && incoming().createdAt == request.time;
+        && incoming().createdAt == request.time
+        && incoming().createdBy == request.auth.uid;
       
       allow update: if isSignedIn()
         && isValidLocation(incoming())
         && incoming().createdAt == existing().createdAt
+        && incoming().createdBy == existing().createdBy
         && (
-          incoming().diff(existing()).affectedKeys().hasOnly(['nombreCliente', 'region', 'centro'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['nombreCliente', 'region', 'ciudad', 'centro'])
         );
       
       allow delete: if isSignedIn();
@@ -94,10 +98,12 @@ service cloud.firestore {
 
     // --- Movement Logic ---
     function isValidMovement(data) {
-      return data.keys().hasAll(['productId', 'type', 'timestamp', 'userEmail'])
+      return data.keys().hasAll(['productId', 'productName', 'type', 'timestamp', 'description', 'userEmail'])
         && data.productId is string && data.productId.size() <= 128
+        && data.productName is string && data.productName.size() <= 200
         && data.type in ['create', 'update', 'delete']
         && data.timestamp == request.time
+        && data.description is string && data.description.size() <= 1000
         && data.userEmail == request.auth.token.email;
     }
 

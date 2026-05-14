@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/dbService';
 import { Location } from '../types';
+import { CHILE_REGIONS } from '../constants';
 import { Plus, Search, Pencil, Trash2, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -73,10 +74,14 @@ export function LocationManager() {
                 <h3 className="text-xl font-bold tracking-tight mb-1">{loc.centro}</h3>
                 <p className="text-sm opacity-50 font-medium mb-6">{loc.nombreCliente}</p>
                 
-                <div className="pt-4 border-t border-white/5 flex justify-between items-center text-[10px] font-mono uppercase tracking-widest opacity-40">
+                <div className="pt-4 border-t border-white/5 flex gap-4 items-center text-[10px] font-mono uppercase tracking-widest opacity-40">
                   <span className="flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
                     {loc.region}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    {loc.ciudad}
                   </span>
                 </div>
               </div>
@@ -103,9 +108,13 @@ function LocationModal({ onClose, onSave, editingLocation }: { onClose: () => vo
     editingLocation || {
       nombreCliente: '',
       region: '',
+      ciudad: '',
       centro: ''
     }
   );
+
+  const selectedRegionData = CHILE_REGIONS.find(r => r.name === formData.region);
+  const cities = selectedRegionData ? selectedRegionData.cities : [];
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -153,14 +162,32 @@ function LocationModal({ onClose, onSave, editingLocation }: { onClose: () => vo
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Región</label>
-            <input
+            <select
               required
-              type="text"
-              placeholder="Ej: Metropolitana"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none"
+              className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-3 outline-none text-sm appearance-none"
               value={formData.region}
-              onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-            />
+              onChange={(e) => setFormData({ ...formData, region: e.target.value, ciudad: '' })}
+            >
+              <option value="">Seleccione Región</option>
+              {CHILE_REGIONS.map(r => (
+                <option key={r.name} value={r.name}>{r.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Ciudad</label>
+            <select
+              required
+              disabled={!formData.region}
+              className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-3 outline-none text-sm appearance-none disabled:opacity-50"
+              value={formData.ciudad}
+              onChange={(e) => setFormData({ ...formData, ciudad: e.target.value })}
+            >
+              <option value="">Seleccione Ciudad</option>
+              {cities.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Centro / Sede</label>

@@ -57,7 +57,7 @@ export default function App() {
       } else if (error.code === 'auth/email-already-in-use') {
         setLoginError('Este usuario ya existe. Intenta entrar directamente.');
       } else if (error.code === 'auth/operation-not-allowed') {
-        setLoginError('El acceso por contraseña está desactivado en Firebase. Actívalo en la Consola (Authentication > Sign-in method).');
+        setLoginError('ACCESO DESACTIVADO: Debes habilitar "Email/Password" en tu Consola de Firebase > Authentication > Sign-in method.');
       } else if (error.code === 'auth/weak-password') {
         setLoginError('La contraseña es muy corta (mínimo 6 caracteres).');
       } else {

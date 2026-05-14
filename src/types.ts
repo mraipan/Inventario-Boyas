@@ -13,6 +13,7 @@ export interface Location {
   id?: string;
   nombreCliente: string;
   region: string;
+  ciudad: string;
   centro: string;
   createdAt: any;
   createdBy: string;
