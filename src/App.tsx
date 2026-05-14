@@ -5,13 +5,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth, login, logout } from './firebase';
+import { auth, login, logout, loginWithEmail } from './firebase';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
 import { Inventory } from './components/Inventory';
 import { LocationManager } from './components/LocationManager';
 import { Reports } from './components/Reports';
-import { Package, MapPin, BarChart3, History, LogIn, LogOut } from 'lucide-react';
+import { Package, MapPin, BarChart3, History, LogIn, LogOut, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 type View = 'dashboard' | 'inventory' | 'locations' | 'reports';
@@ -20,6 +20,9 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState<View>('dashboard');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -28,6 +31,18 @@ export default function App() {
     });
     return unsubscribe;
   }, []);
+
+  const handleTestLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+    try {
+      // Map 'marco' to an email for Firebase Auth compatibility
+      const email = username === 'marco' ? 'marco@test.com' : username;
+      await loginWithEmail(email, password);
+    } catch (error: any) {
+      setLoginError('Error: ' + (error.message || 'Credenciales inválidas'));
+    }
+  };
 
   if (loading) {
     return (
@@ -46,12 +61,12 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center p-6 text-white">
+      <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center p-6 text-white overflow-y-auto">
         <div className="mesh-gradient"></div>
         <motion.div 
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="max-w-md w-full glass rounded-3xl p-8"
+          className="max-w-md w-full glass rounded-3xl p-8 my-8"
         >
           <div className="flex items-center gap-3 mb-6">
             <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center font-bold text-xl">
@@ -64,17 +79,57 @@ export default function App() {
           </div>
           
           <p className="text-sm mb-8 leading-relaxed opacity-70">
-            Acceso restringido. Por favor, inicie sesión con su cuenta corporativa para gestionar el inventario y equipos calibrados.
+            Acceso restringido. Por favor, inicie sesión para gestionar el inventario y equipos.
           </p>
 
-          <button
-            onClick={login}
-            id="login-button"
-            className="w-full flex items-center justify-center gap-2 bg-white text-[#0f172a] py-3 px-6 rounded-2xl hover:bg-cyan-50 transition-colors font-bold text-sm tracking-wider"
-          >
-            <LogIn size={18} />
-            Iniciar Sesión
-          </button>
+          <div className="space-y-6">
+            <button
+              onClick={login}
+              id="login-button"
+              className="w-full flex items-center justify-center gap-2 bg-white text-[#0f172a] py-3 px-6 rounded-2xl hover:bg-cyan-50 transition-colors font-bold text-sm tracking-wider"
+            >
+              <LogIn size={18} />
+              Entrar con Google
+            </button>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10"></div></div>
+              <div className="relative flex justify-center text-[10px] uppercase tracking-widest"><span className="bg-[#1e293b] px-3 opacity-40">O acceso de pruebas</span></div>
+            </div>
+
+            <form onSubmit={handleTestLogin} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-mono uppercase opacity-40 ml-1">Usuario</label>
+                <input 
+                  type="text" 
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="marco"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-white/40"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-mono uppercase opacity-40 ml-1">Contraseña</label>
+                <input 
+                  type="password" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-white/40"
+                />
+              </div>
+              
+              {loginError && <p className="text-[10px] text-red-400 text-center uppercase tracking-wider">{loginError}</p>}
+
+              <button
+                type="submit"
+                className="w-full flex items-center justify-center gap-2 bg-white/10 text-white py-3 px-6 rounded-2xl hover:bg-white/20 transition-colors font-bold text-sm tracking-wider"
+              >
+                <ShieldCheck size={18} />
+                Acceder (Demo)
+              </button>
+            </form>
+          </div>
         </motion.div>
       </div>
     );
