@@ -128,8 +128,9 @@ function LocationModal({ onClose, onSave, editingLocation }: { onClose: () => vo
       }
       onSave();
       onClose();
-    } catch (error) {
-      alert("Error al guardar la ubicación.");
+    } catch (error: any) {
+      console.error('Error saving location:', error);
+      alert("Error al guardar la ubicación: " + (error.message || error));
     } finally {
       setIsSubmitting(false);
     }

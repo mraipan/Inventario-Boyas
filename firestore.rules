@@ -67,13 +67,12 @@ service cloud.firestore {
 
     // --- Location Logic ---
     function isValidLocation(data) {
-      return data.keys().hasAll(['nombreCliente', 'region', 'ciudad', 'centro', 'createdAt', 'createdBy'])
-        && data.nombreCliente is string && data.nombreCliente.size() <= 200
-        && data.region is string && data.region.size() <= 100
-        && data.ciudad is string && data.ciudad.size() <= 100
-        && data.centro is string && data.centro.size() <= 100
-        && data.createdAt is timestamp
-        && data.createdBy is string && data.createdBy.size() <= 128
+      return (data.get('nombreCliente', '') is string && data.get('nombreCliente', '').size() <= 200)
+        && (data.get('region', '') is string && data.get('region', '').size() <= 100)
+        && (data.get('ciudad', '') is string && data.get('ciudad', '').size() <= 100)
+        && (data.get('centro', '') is string && data.get('centro', '').size() <= 100)
+        && (data.get('createdAt', request.time) is timestamp)
+        && (data.get('createdBy', 'default') is string && data.get('createdBy', 'default').size() <= 128)
         && (data.get('updatedAt', request.time) is timestamp);
     }
 
@@ -82,6 +81,7 @@ service cloud.firestore {
       allow get: if isSignedIn();
       allow create: if isSignedIn()
         && isValidId(locationId)
+        && incoming().keys().hasAll(['nombreCliente', 'region', 'ciudad', 'centro', 'createdAt', 'createdBy'])
         && isValidLocation(incoming())
         && incoming().createdAt == request.time
         && incoming().createdBy == request.auth.uid;
