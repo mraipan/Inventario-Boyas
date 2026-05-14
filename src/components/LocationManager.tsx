@@ -31,14 +31,14 @@ export function LocationManager() {
 
   return (
     <div className="space-y-6 py-4">
-      <header className="flex justify-between items-end mb-2">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-2">
         <div>
-          <h1 className="text-3xl font-light tracking-tight">Gestión de <span className="font-bold">Ubicaciones</span></h1>
+          <h1 className="text-2xl md:text-3xl font-light tracking-tight">Gestión de <span className="font-bold">Ubicaciones</span></h1>
           <p className="text-[10px] font-mono opacity-50 uppercase tracking-widest mt-1">Configuración de Sedes y Clientes</p>
         </div>
         <button
           onClick={() => { setEditingLocation(null); setIsModalOpen(true); }}
-          className="bg-white text-[#0f172a] py-3 px-6 rounded-2xl hover:bg-cyan-50 transition-colors font-bold text-sm tracking-wider flex items-center gap-2"
+          className="w-full md:w-auto bg-white text-[#0f172a] py-3 px-6 rounded-2xl hover:bg-cyan-50 transition-colors font-bold text-sm tracking-wider flex items-center justify-center gap-2"
         >
           <Plus size={18} />
           Nueva Ubicación
@@ -142,30 +142,30 @@ function LocationModal({ onClose, onSave, editingLocation }: { onClose: () => vo
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
-        className="glass rounded-3xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col"
+        className="glass rounded-[2rem] lg:rounded-3xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col h-full lg:h-auto lg:max-h-[90vh]"
       >
-        <div className="bg-white/5 border-b border-white/10 p-6 flex justify-between items-center">
+        <div className="bg-white/5 border-b border-white/10 px-6 py-4 lg:p-6 flex justify-between items-center">
           <h3 className="text-xl font-light tracking-tight">{editingLocation ? 'Editar' : 'Nueva'} <span className="font-bold">Ubicación</span></h3>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors">✕</button>
+          <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-xl">✕</button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-8 space-y-6">
+        <form onSubmit={handleSubmit} className="flex-1 p-6 lg:p-8 space-y-6 overflow-y-auto custom-scrollbar">
           <div className="space-y-1.5">
             <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Nombre del Cliente</label>
             <input
               required
               type="text"
               placeholder="Ej: Hospital Central"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none text-sm lg:text-base"
               value={formData.nombreCliente}
               onChange={(e) => setFormData({ ...formData, nombreCliente: e.target.value })}
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 transition-all">
             <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Región</label>
             <select
               required
-              className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-3 outline-none text-sm appearance-none"
+              className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-3 outline-none text-sm lg:text-base appearance-none"
               value={formData.region}
               onChange={(e) => setFormData({ ...formData, region: e.target.value, ciudad: '' })}
             >
@@ -175,12 +175,12 @@ function LocationModal({ onClose, onSave, editingLocation }: { onClose: () => vo
               ))}
             </select>
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 transition-all">
             <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Ciudad</label>
             <select
               required
               disabled={!formData.region}
-              className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-3 outline-none text-sm appearance-none disabled:opacity-50"
+              className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-3 outline-none text-sm lg:text-base appearance-none disabled:opacity-50"
               value={formData.ciudad}
               onChange={(e) => setFormData({ ...formData, ciudad: e.target.value })}
             >
@@ -196,24 +196,24 @@ function LocationModal({ onClose, onSave, editingLocation }: { onClose: () => vo
               required
               type="text"
               placeholder="Ej: Campus Norte"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none text-sm lg:text-base"
               value={formData.centro}
               onChange={(e) => setFormData({ ...formData, centro: e.target.value })}
             />
           </div>
 
-          <div className="pt-4 flex gap-4">
+          <div className="pb-6 lg:pb-0 pt-4 flex flex-col md:flex-row gap-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-4 bg-white/10 rounded-2xl text-xs font-bold uppercase tracking-wider hover:bg-white/20 transition-colors"
+              className="order-2 md:order-1 flex-1 py-4 bg-white/10 rounded-2xl text-xs font-bold uppercase tracking-wider hover:bg-white/20 transition-colors"
             >
               Cancelar
             </button>
             <button
               disabled={isSubmitting}
               type="submit"
-              className="flex-1 py-4 bg-white text-slate-900 rounded-2xl text-xs font-bold uppercase tracking-wider hover:bg-cyan-50 transition-colors disabled:opacity-50"
+              className="order-1 md:order-2 flex-1 py-4 bg-white text-[#0f172a] rounded-2xl text-xs font-bold uppercase tracking-wider hover:bg-cyan-50 transition-colors disabled:opacity-50"
             >
               {isSubmitting ? 'GUARDANDO...' : editingLocation ? 'Actualizar' : 'Guardar Ubicación'}
             </button>

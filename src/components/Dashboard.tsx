@@ -37,14 +37,14 @@ export function Dashboard({ onNavigate }: { onNavigate: (view: any) => void }) {
 
   return (
     <div className="space-y-8 py-4">
-      <header className="flex justify-between items-end mb-2">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-2">
         <div>
-          <h1 className="text-3xl font-light tracking-tight">Estado del <span className="font-bold">Sistema</span></h1>
+          <h1 className="text-2xl md:text-3xl font-light tracking-tight">Estado del <span className="font-bold">Sistema</span></h1>
           <p className="text-[10px] font-mono opacity-50 uppercase tracking-widest mt-1">Resumen General de Inventario</p>
         </div>
-        <div className="flex gap-3">
-          <div className="glass px-4 py-2 rounded-xl text-[10px] uppercase tracking-widest font-bold">{stats.totalProducts} Items Total</div>
-          <div className="glass px-4 py-2 rounded-xl text-[10px] uppercase tracking-widest font-bold text-cyan-400">{stats.badCondition} Críticos</div>
+        <div className="flex gap-3 w-full md:w-auto">
+          <div className="flex-1 md:flex-none glass px-4 py-2 rounded-xl text-[10px] uppercase tracking-widest font-bold text-center">{stats.totalProducts} Items Total</div>
+          <div className="flex-1 md:flex-none glass px-4 py-2 rounded-xl text-[10px] uppercase tracking-widest font-bold text-cyan-400 text-center">{stats.badCondition} Críticos</div>
         </div>
       </header>
 

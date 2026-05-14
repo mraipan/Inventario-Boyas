@@ -39,14 +39,14 @@ export function Inventory() {
 
   return (
     <div className="space-y-6 py-4">
-      <header className="flex justify-between items-end mb-2">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-2">
         <div>
-          <h1 className="text-3xl font-light tracking-tight">Inventario de <span className="font-bold">Boyas</span></h1>
+          <h1 className="text-2xl md:text-3xl font-light tracking-tight">Inventario de <span className="font-bold">Boyas</span></h1>
           <p className="text-[10px] font-mono opacity-50 uppercase tracking-widest mt-1">Control de Equipos y Calibraciones</p>
         </div>
         <button
           onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
-          className="bg-white text-[#0f172a] py-3 px-6 rounded-2xl hover:bg-cyan-50 transition-colors font-bold text-sm tracking-wider flex items-center gap-2"
+          className="w-full md:w-auto bg-white text-[#0f172a] py-3 px-6 rounded-2xl hover:bg-cyan-50 transition-colors font-bold text-sm tracking-wider flex items-center justify-center gap-2"
         >
           <Plus size={18} />
           Nuevo Registro
@@ -111,17 +111,17 @@ export function Inventory() {
                       <div className="text-[10px] opacity-40 uppercase tracking-tight">{locations.find(l => l.id === p.ubicacionId)?.nombreCliente}</div>
                     </td>
                     <td className="p-6 text-right">
-                      <div className="flex justify-end gap-3 translate-x-2 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 transition-all">
+                      <div className="flex justify-end gap-1 md:gap-3 lg:translate-x-2 lg:opacity-0 lg:group-hover:opacity-100 lg:group-hover:translate-x-0 transition-all">
                         <button 
                           onClick={() => { setEditingProduct(p); setIsModalOpen(true); }}
-                          className="p-2 hover:bg-white/10 rounded-xl text-white/40 hover:text-white transition-colors"
+                          className="p-2 md:p-2 hover:bg-white/10 rounded-xl text-white/40 hover:text-white transition-colors"
                           title="Editar"
                         >
                           <Pencil size={16} />
                         </button>
                         <button 
                           onClick={() => handleDelete(p.id!, p.nombre)}
-                          className="p-2 hover:bg-red-500/20 rounded-xl text-white/40 hover:text-red-400 transition-colors"
+                          className="p-2 md:p-2 hover:bg-red-500/20 rounded-xl text-white/40 hover:text-red-400 transition-colors"
                           title="Eliminar"
                         >
                           <Trash2 size={16} />
@@ -189,22 +189,22 @@ function ProductModal({ onClose, onSave, editingProduct, locations }: { onClose:
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
-        className="glass rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+        className="glass rounded-[2rem] lg:rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col h-full lg:h-auto lg:max-h-[90vh]"
       >
-        <div className="bg-white/5 border-b border-white/10 p-6 flex justify-between items-center">
+        <div className="bg-white/5 border-b border-white/10 px-6 py-4 lg:p-6 flex justify-between items-center">
           <h3 className="text-xl font-light tracking-tight">{editingProduct ? 'Editar' : 'Registrar'} <span className="font-bold">Equipo</span></h3>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors">✕</button>
+          <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-xl">✕</button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto custom-scrollbar">
-          <div className="grid grid-cols-2 gap-6">
+        <form onSubmit={handleSubmit} className="flex-1 p-6 lg:p-8 space-y-6 overflow-y-auto custom-scrollbar">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-1.5">
               <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Nombre del Producto</label>
               <input
                 required
                 type="text"
                 placeholder="Ej: Multímetro Digital"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:ring-1 focus:ring-white/40 transition-all"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:ring-1 focus:ring-white/40 transition-all text-sm lg:text-base"
                 value={formData.nombre}
                 onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
               />
@@ -216,21 +216,21 @@ function ProductModal({ onClose, onSave, editingProduct, locations }: { onClose:
                 disabled={!!editingProduct}
                 type="text"
                 placeholder="SN-0000"
-                className="w-full bg-white/5 border border-white/20 text-cyan-300 font-mono rounded-xl px-4 py-3 outline-none disabled:opacity-50"
+                className="w-full bg-white/5 border border-white/20 text-cyan-300 font-mono rounded-xl px-4 py-3 outline-none disabled:opacity-50 text-sm lg:text-base"
                 value={formData.serie}
                 onChange={(e) => setFormData({ ...formData, serie: e.target.value })}
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-1.5">
               <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Marca</label>
               <input
                 required
                 type="text"
                 placeholder="Fluke, Tektronix..."
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none text-sm lg:text-base"
                 value={formData.marca}
                 onChange={(e) => setFormData({ ...formData, marca: e.target.value })}
               />
@@ -241,47 +241,47 @@ function ProductModal({ onClose, onSave, editingProduct, locations }: { onClose:
                 required
                 type="text"
                 placeholder="Ej: Model 87V"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none text-sm lg:text-base"
                 value={formData.modelo}
                 onChange={(e) => setFormData({ ...formData, modelo: e.target.value })}
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-1.5">
               <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Estado Físico</label>
               <select
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none appearance-none"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base"
                 value={formData.estado}
                 onChange={(e) => setFormData({ ...formData, estado: e.target.value as ProductStatus })}
               >
-                <option value={ProductStatus.BUENO} className="bg-slate-800">Bueno</option>
-                <option value={ProductStatus.MALO} className="bg-slate-800">Malo</option>
+                <option value={ProductStatus.BUENO} className="bg-[#1e293b]">Bueno</option>
+                <option value={ProductStatus.MALO} className="bg-[#1e293b]">Malo</option>
               </select>
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Ubicación Asignada</label>
               <select
                 required
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none appearance-none"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base"
                 value={formData.ubicacionId}
                 onChange={(e) => setFormData({ ...formData, ubicacionId: e.target.value })}
               >
-                <option value="" className="bg-slate-800">Seleccionar...</option>
+                <option value="" className="bg-[#1e293b]">Seleccionar...</option>
                 {locations.map(l => (
-                  <option key={l.id} value={l.id} className="bg-slate-800">{l.centro} ({l.region})</option>
+                  <option key={l.id} value={l.id} className="bg-[#1e293b]">{l.centro} ({l.region})</option>
                 ))}
               </select>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-1.5">
               <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Fecha de Calibración</label>
               <input
                 type="date"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none [color-scheme:dark]"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none [color-scheme:dark] text-sm lg:text-base"
                 value={formData.fechaCalibracion}
                 onChange={(e) => setFormData({ ...formData, fechaCalibracion: e.target.value })}
               />
@@ -289,27 +289,27 @@ function ProductModal({ onClose, onSave, editingProduct, locations }: { onClose:
             <div className="space-y-1.5">
               <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Documento URL</label>
               <input
-                type="text"
-                placeholder="Link al PDF..."
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none"
+                type="url"
+                placeholder="https://..."
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none text-sm lg:text-base"
                 value={formData.documentoCalibracionUrl}
                 onChange={(e) => setFormData({ ...formData, documentoCalibracionUrl: e.target.value })}
               />
             </div>
           </div>
 
-          <div className="pt-4 flex gap-4">
+          <div className="pb-6 lg:pb-0 pt-4 flex flex-col md:flex-row gap-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-4 bg-white/10 rounded-2xl text-xs font-bold uppercase tracking-wider hover:bg-white/20 transition-colors"
+              className="order-2 md:order-1 flex-1 py-4 bg-white/10 rounded-2xl text-xs font-bold uppercase tracking-wider hover:bg-white/20 transition-colors"
             >
               Cancelar
             </button>
             <button
               disabled={isSubmitting}
               type="submit"
-              className="flex-1 py-4 bg-white text-slate-900 rounded-2xl text-xs font-bold uppercase tracking-wider hover:bg-cyan-50 transition-colors disabled:opacity-50"
+              className="order-1 md:order-2 flex-1 py-4 bg-white text-[#0f172a] rounded-2xl text-xs font-bold uppercase tracking-wider hover:bg-cyan-50 transition-colors disabled:opacity-50"
             >
               {isSubmitting ? 'GUARDANDO...' : editingProduct ? 'Actualizar Registro' : 'Registrar Producto'}
             </button>

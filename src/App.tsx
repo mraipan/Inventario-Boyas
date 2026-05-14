@@ -11,7 +11,7 @@ import { Dashboard } from './components/Dashboard';
 import { Inventory } from './components/Inventory';
 import { LocationManager } from './components/LocationManager';
 import { Reports } from './components/Reports';
-import { Package, MapPin, BarChart3, History, LogIn, LogOut, ShieldCheck, UserPlus } from 'lucide-react';
+import { Package, MapPin, BarChart3, History, LogIn, LogOut, ShieldCheck, UserPlus, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 type View = 'dashboard' | 'inventory' | 'locations' | 'reports';
@@ -24,6 +24,7 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -176,44 +177,79 @@ export default function App() {
   return (
     <div className="min-h-screen text-white selection:bg-white/20 selection:text-cyan-400">
       <div className="mesh-gradient"></div>
-      <div className="flex h-screen overflow-hidden p-6 gap-6">
+      
+      {/* Mobile Top Bar */}
+      <div className="lg:hidden flex items-center justify-between p-4 glass border-b border-white/10 z-40 relative">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center font-bold text-sm">INV</div>
+          <span className="font-light tracking-tight text-lg">Boyas<span className="font-bold">Oceanográficas</span></span>
+        </div>
+        <button 
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="p-2 hover:bg-white/10 rounded-xl transition-colors"
+        >
+          {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+
+      <div className="flex h-screen overflow-hidden lg:p-6 p-0 lg:gap-6 gap-0">
+        {/* Sidebar Overlay */}
+        <AnimatePresence>
+          {isSidebarOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSidebarOpen(false)}
+              className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+            />
+          )}
+        </AnimatePresence>
+
         {/* Sidebar */}
-        <aside className="w-64 glass rounded-3xl flex flex-col overflow-hidden">
+        <aside className={`
+          fixed lg:relative z-50 lg:z-0
+          w-72 lg:w-64 h-full
+          glass lg:rounded-3xl flex flex-col overflow-hidden
+          transition-transform duration-300 ease-out
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        `}>
           <div className="p-8">
             <div className="flex items-center gap-2 mb-1">
               <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center font-bold text-sm">INV</div>
               <span className="font-light tracking-tight text-lg">Boyas<span className="font-bold">Oceanográficas</span></span>
             </div>
+            <p className="text-[10px] font-mono opacity-40 uppercase tracking-[0.2em] ml-10">Control Panel</p>
           </div>
 
           <nav className="flex-1 px-4 space-y-2">
             <NavButton 
               active={currentView === 'dashboard'} 
-              onClick={() => setCurrentView('dashboard')}
+              onClick={() => { setCurrentView('dashboard'); setIsSidebarOpen(false); }}
               icon={<BarChart3 size={18} />}
               label="Dashboard"
             />
             <NavButton 
               active={currentView === 'inventory'} 
-              onClick={() => setCurrentView('inventory')}
+              onClick={() => { setCurrentView('inventory'); setIsSidebarOpen(false); }}
               icon={<Package size={18} />}
               label="Equipos"
             />
             <NavButton 
               active={currentView === 'locations'} 
-              onClick={() => setCurrentView('locations')}
+              onClick={() => { setCurrentView('locations'); setIsSidebarOpen(false); }}
               icon={<MapPin size={18} />}
               label="Ubicaciones"
             />
             <NavButton 
               active={currentView === 'reports'} 
-              onClick={() => setCurrentView('reports')}
+              onClick={() => { setCurrentView('reports'); setIsSidebarOpen(false); }}
               icon={<History size={18} />}
               label="Historial"
             />
           </nav>
 
-          <div className="p-6 bg-white/5 mt-auto border-t border-white/10">
+          <div className="p-6 bg-white/5 mt-auto border-t border-white/10 mb-safe-bottom">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl bg-white/20 text-white flex items-center justify-center text-sm font-bold border border-white/20">
                 {user.email?.[0].toUpperCase()}
@@ -234,7 +270,7 @@ export default function App() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-hidden flex flex-col">
+        <main className="flex-1 overflow-hidden flex flex-col p-4 lg:p-0">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentView}
@@ -242,9 +278,9 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
-              className="h-full flex flex-col"
+              className="h-full flex flex-col pt-2 lg:pt-0"
             >
-              <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+              <div className="flex-1 overflow-y-auto custom-scrollbar lg:pr-2">
                 {currentView === 'dashboard' && <Dashboard onNavigate={setCurrentView} />}
                 {currentView === 'inventory' && <Inventory />}
                 {currentView === 'locations' && <LocationManager />}

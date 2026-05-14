@@ -41,4 +41,12 @@
   .custom-scrollbar::-webkit-scrollbar-thumb {
     @apply bg-white/20 rounded-full;
   }
+
+  .mb-safe-bottom {
+    margin-bottom: env(safe-area-inset-bottom);
+  }
+
+  .pb-safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
