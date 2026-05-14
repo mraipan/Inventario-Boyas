@@ -1,0 +1,97 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Helpers
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Product Logic ---
+    function isValidProduct(data) {
+      return data.keys().hasAll(['nombre', 'marca', 'modelo', 'serie', 'estado', 'ubicacionId'])
+        && data.nombre is string && data.nombre.size() <= 200
+        && data.marca is string && data.marca.size() <= 100
+        && data.modelo is string && data.modelo.size() <= 100
+        && data.serie is string && data.serie.size() <= 100
+        && data.estado in ['Bueno', 'Malo']
+        && data.ubicacionId is string
+        && (data.get('fechaCalibracion', '') is string)
+        && (data.get('documentoCalibracionUrl', '') is string);
+    }
+
+    match /products/{productId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() 
+        && isValidId(productId) 
+        && productId == incoming().serie
+        && isValidProduct(incoming())
+        && incoming().createdAt == request.time
+        && incoming().createdBy == request.auth.uid;
+      
+      allow update: if isSignedIn()
+        && isValidProduct(incoming())
+        && incoming().serie == existing().serie
+        && incoming().createdBy == existing().createdBy
+        && incoming().updatedAt == request.time;
+        
+      allow delete: if isSignedIn();
+    }
+
+    // --- Location Logic ---
+    function isValidLocation(data) {
+      return data.keys().hasAll(['nombreCliente', 'region', 'centro'])
+        && data.nombreCliente is string && data.nombreCliente.size() <= 200
+        && data.region is string && data.region.size() <= 100
+        && data.centro is string && data.centro.size() <= 100;
+    }
+
+    match /locations/{locationId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && isValidId(locationId)
+        && isValidLocation(incoming())
+        && incoming().createdAt == request.time;
+      
+      allow update: if isSignedIn()
+        && isValidLocation(incoming());
+      
+      allow delete: if isSignedIn();
+    }
+
+    // --- Movement Logic ---
+    function isValidMovement(data) {
+      return data.keys().hasAll(['productId', 'type', 'timestamp', 'userEmail'])
+        && data.productId is string
+        && data.type in ['create', 'update', 'delete']
+        && data.timestamp == request.time
+        && data.userEmail == request.auth.token.email;
+    }
+
+    match /movements/{movementId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn();
+      allow create: if isSignedIn()
+        && isValidId(movementId)
+        && isValidMovement(incoming());
+      // Movements are immutable
+      allow update, delete: if false;
+    }
+  }
+}
