@@ -45,7 +45,6 @@ service cloud.firestore {
       
       allow create: if isSignedIn() 
         && isValidId(productId) 
-        && productId == incoming().serie
         && isValidProduct(incoming())
         && incoming().createdAt == request.time
         && incoming().createdBy == request.auth.uid;

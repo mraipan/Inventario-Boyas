@@ -112,6 +112,34 @@ export const dbService = {
     }
   },
 
+  async batchImportProducts(products: Omit<Product, 'createdAt' | 'createdBy' | 'id'>[]) {
+    const path = 'products';
+    try {
+      if (!auth.currentUser) throw new Error("Debe estar autenticado para importar datos");
+      
+      const { writeBatch, doc, collection } = await import('firebase/firestore');
+      const batch = writeBatch(db);
+      const timestamp = serverTimestamp();
+      const uid = auth.currentUser.uid;
+
+      products.forEach((product) => {
+        const { id: _, createdAt: __, createdBy: ___, ...cleanProduct } = product as any;
+        const newProductRef = doc(collection(db, 'products'));
+        batch.set(newProductRef, {
+          ...cleanProduct,
+          createdAt: timestamp,
+          createdBy: uid
+        });
+      });
+
+      await batch.commit();
+      await logMovement('batch', 'Importación masiva', MovementType.CREATE, `Se importaron ${products.length} productos vía CSV`);
+    } catch (error) {
+      console.error("Batch Import Error:", error);
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
   // Locations
   async getLocations() {
     const path = 'locations';

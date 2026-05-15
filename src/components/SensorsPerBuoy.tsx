@@ -1,38 +1,83 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/dbService';
-import { Product, Location } from '../types';
-import { Cpu, Filter, Anchor, AlertCircle } from 'lucide-react';
+import { Product, Location, ProductStatus } from '../types';
+import { Plus, Search, Pencil, Trash2, Cpu, AlertCircle, MapPin, Download } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import * as XLSX from 'xlsx';
 
 export function SensorsPerBuoy() {
   const [products, setProducts] = useState<Product[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedLocationId, setSelectedLocationId] = useState<string>('all');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [p, l] = await Promise.all([
-          dbService.getProducts(),
-          dbService.getLocations()
-        ]);
-        setProducts(p);
-        setLocations(l);
-      } catch (error) {
-        console.error("Error loading sensors data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
+    fetchData();
   }, []);
 
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [p, l] = await Promise.all([
+        dbService.getProducts(),
+        dbService.getLocations()
+      ]);
+      setProducts(p || []);
+      setLocations(l || []);
+    } catch (error) {
+      console.error("Error loading sensors data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const exportToExcel = () => {
+    const headers = ["Boya", "Sensor", "Marca", "Modelo", "Serie", "Estado", "Última Calibración"];
+    const data = groupedProducts.flatMap(({ location, products }) => 
+      products.map(p => ({
+        "Boya": location.centro,
+        "Sensor": p.nombre,
+        "Marca": p.marca,
+        "Modelo": p.modelo,
+        "Serie": p.serie,
+        "Estado": p.estado,
+        "Última Calibración": p.fechaCalibracion || 'N/A'
+      }))
+    );
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sensores por Boya");
+    
+    worksheet["!cols"] = headers.map(() => ({ wch: 20 }));
+
+    XLSX.writeFile(workbook, `sensores_por_boya_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const handleDelete = async (id: string, nombre: string) => {
+    if (confirm(`¿Está seguro de eliminar el sensor ${nombre}?`)) {
+      await dbService.deleteProduct(id, nombre);
+      fetchData();
+    }
+  };
+
   const filteredProducts = products.filter(p => {
+    const matchesSearch = 
+      p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.serie.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.marca.toLowerCase().includes(searchTerm.toLowerCase());
+    
     const matchesLocation = selectedLocationId === 'all' || p.ubicacionId === selectedLocationId;
-    return matchesLocation;
+    
+    return matchesSearch && matchesLocation;
   });
 
   const groupedProducts = locations.reduce((acc, loc) => {
+    if (selectedLocationId !== 'all' && loc.id !== selectedLocationId) return acc;
+    
     const locProducts = filteredProducts.filter(p => p.ubicacionId === loc.id);
     if (locProducts.length > 0) {
       acc.push({ location: loc, products: locProducts });
@@ -41,12 +86,12 @@ export function SensorsPerBuoy() {
   }, [] as { location: Location; products: Product[] }[]);
 
   // Add a category for unassigned sensors if any
-  const unassigned = filteredProducts.filter(p => !p.ubicacionId || !locations.find(l => l.id === p.ubicacionId));
+  const unassigned = filteredProducts.filter(p => (!p.ubicacionId || !locations.find(l => l.id === p.ubicacionId)) && (selectedLocationId === 'all' || selectedLocationId === 'unassigned'));
   if (unassigned.length > 0) {
     const unassignedLoc: Location = { 
       id: 'unassigned', 
       centro: 'Sin Asignar', 
-      nombreCliente: 'N/A', 
+      nombreCliente: 'Equipos Libres', 
       region: 'N/A', 
       ciudad: 'N/A', 
       createdAt: new Date() as any, 
@@ -63,24 +108,52 @@ export function SensorsPerBuoy() {
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-2">
         <div>
           <h1 className="text-2xl md:text-3xl font-light tracking-tight">Sensores por <span className="font-bold">Boya</span></h1>
-          <p className="text-[10px] font-mono opacity-50 uppercase tracking-widest mt-1">Configuración y estado de sensores instalados</p>
+          <p className="text-[10px] font-mono opacity-50 uppercase tracking-widest mt-1">Sectores y Unidades Operativas</p>
+        </div>
+        <div className="flex gap-2 w-full md:w-auto">
+          <button
+            onClick={exportToExcel}
+            className="flex-1 md:flex-none glass bg-white/5 text-white py-3 px-4 rounded-2xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2 border border-white/5"
+            title="Exportar a Excel"
+          >
+            <Download size={18} className="opacity-70" />
+            <span className="md:hidden lg:inline text-xs font-bold uppercase tracking-wider">Exportar</span>
+          </button>
+          <button
+            onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
+            className="flex-1 md:flex-none bg-white text-[#0f172a] py-3 px-6 rounded-2xl hover:bg-cyan-50 transition-colors font-bold text-sm tracking-wider flex items-center justify-center gap-2"
+          >
+            <Plus size={18} />
+            Nuevo Sensor
+          </button>
         </div>
       </header>
 
       <div className="flex flex-col md:flex-row gap-4">
-        <div className="relative flex-1">
-          <Filter className="absolute left-4 top-1/2 -translate-y-1/2 opacity-30 pointer-events-none" size={18} />
+        <div className="relative flex-[2] group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 opacity-30 group-focus-within:opacity-100 group-focus-within:text-cyan-400 transition-all" size={18} />
+          <input
+            type="text"
+            placeholder="Buscar sensor por nombre, serie o marca..."
+            className="w-full glass bg-white/5 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-white/40 transition-all placeholder:text-white/20"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <div className="relative flex-1 group">
+          <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 opacity-30 pointer-events-none group-focus-within:opacity-100" size={18} />
           <select
-            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-10 outline-none focus:ring-2 focus:ring-white/20 transition-all text-sm appearance-none cursor-pointer font-bold uppercase tracking-wider"
+            className="w-full glass bg-white/5 border-none rounded-2xl py-3 pl-12 pr-10 outline-none focus:ring-1 focus:ring-white/40 transition-all text-sm appearance-none cursor-pointer"
             value={selectedLocationId}
             onChange={(e) => setSelectedLocationId(e.target.value)}
           >
-            <option value="all" className="bg-[#1e293b]">Seleccionar Ubicación (Todas)</option>
+            <option value="all" className="bg-[#1e293b]">Todas las Ubicaciones</option>
             {locations.map(loc => (
               <option key={loc.id} value={loc.id} className="bg-[#1e293b]">
-                {loc.centro} ({loc.nombreCliente})
+                {loc.centro}
               </option>
             ))}
+            {unassigned.length > 0 && <option value="unassigned" className="bg-[#1e293b]">Sin Asignar</option>}
           </select>
           <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-30">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
@@ -88,57 +161,281 @@ export function SensorsPerBuoy() {
         </div>
       </div>
 
-      <div className="space-y-12">
+      <div className="space-y-12 pb-12">
         {loading ? (
           <div className="p-12 text-center font-mono opacity-50 uppercase text-xs">Cargando sensores...</div>
-        ) : filteredProducts.length === 0 ? (
-          <div className="p-12 text-center font-mono opacity-30 italic text-xs">No se encontraron sensores registrados</div>
+        ) : groupedProducts.length === 0 ? (
+          <div className="p-12 text-center font-mono opacity-30 italic text-xs">No se encontraron sensores en esta vista</div>
         ) : (
           groupedProducts.map(({ location, products }) => (
-            <div key={location.id} className="space-y-6">
-              <div className="flex items-center gap-4 px-2">
-                <div className="h-px bg-white/10 flex-1"></div>
-                <div className="flex flex-col items-center">
-                  <span className="text-[10px] font-mono opacity-40 uppercase tracking-[0.3em] font-bold">{location.nombreCliente}</span>
-                  <h2 className="text-xl font-light tracking-tight"><span className="font-bold">{location.centro}</span></h2>
-                </div>
-                <div className="h-px bg-white/10 flex-1"></div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {products.map((p) => (
-                  <div key={p.id} className="glass rounded-3xl p-6 hover:bg-white/5 transition-all group border border-white/5 hover:border-white/10">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="p-3 bg-cyan-500/20 rounded-2xl text-cyan-400 group-hover:scale-110 transition-transform">
-                        <Cpu size={24} />
-                      </div>
-                      <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        p.estado === 'Bueno' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
-                      }`}>
-                        {p.estado}
-                      </div>
-                    </div>
-                    
-                    <h3 className="text-xl font-bold mb-1">{p.nombre}</h3>
-                    <p className="text-xs opacity-50 font-mono mb-4">S/N: {p.serie}</p>
-                    
-                    <div className="space-y-3 pt-4 border-t border-white/5">
-                      <div className="flex items-center gap-2">
-                        <AlertCircle size={14} className="opacity-40" />
-                        <span className="text-xs opacity-80">Marca/Modelo: <span className="font-bold text-white">{p.marca} {p.modelo}</span></span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Anchor size={14} className="opacity-40" />
-                        <span className="text-[10px] font-mono opacity-40 uppercase tracking-wider">Última Calib: {p.fechaCalibracion || 'N/A'}</span>
-                      </div>
-                    </div>
+            <section key={location.id} className="space-y-4">
+              <div className="flex items-center justify-between px-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center border border-cyan-500/20 shadow-[0_0_15px_rgba(34,211,238,0.1)]">
+                    <Cpu size={20} />
                   </div>
-                ))}
+                  <div>
+                    <h2 className="text-xl font-bold tracking-tight">{location.centro}</h2>
+                    <p className="text-[10px] font-mono opacity-40 uppercase tracking-widest">{location.nombreCliente}</p>
+                  </div>
+                </div>
+                <div className="text-right hidden sm:block">
+                  <div className="text-[10px] font-mono opacity-30 uppercase tracking-widest leading-none mb-1">Total Sensores</div>
+                  <div className="text-xl font-bold text-white/80">{products.length}</div>
+                </div>
               </div>
-            </div>
+
+              <div className="glass rounded-3xl overflow-hidden border border-white/5">
+                <div className="overflow-x-auto custom-scrollbar">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="text-white/40 border-b border-white/10 bg-white/2">
+                      <tr>
+                        <th className="p-4 pl-6 font-medium text-[10px] uppercase tracking-widest">Sensor</th>
+                        <th className="p-4 font-medium text-[10px] uppercase tracking-widest text-center">Serie</th>
+                        <th className="p-4 font-medium text-[10px] uppercase tracking-widest text-center">Estado</th>
+                        <th className="p-4 font-medium text-[10px] uppercase tracking-widest">Últ. Calib.</th>
+                        <th className="p-4 pr-6 font-medium text-[10px] uppercase tracking-widest text-right">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-sm divide-y divide-white/5">
+                      {products.map((p) => (
+                        <tr key={p.id} className="hover:bg-white/5 group transition-colors">
+                          <td className="p-4 pl-6">
+                            <div className="font-semibold text-white/90">{p.nombre}</div>
+                            <div className="text-[10px] opacity-40">{p.marca} • {p.modelo}</div>
+                          </td>
+                          <td className="p-4 text-center font-mono text-cyan-400 font-bold tracking-tight">
+                            {p.serie}
+                          </td>
+                          <td className="p-4 text-center">
+                            <div className="flex justify-center">
+                              <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider ${
+                                p.estado === ProductStatus.BUENO 
+                                  ? 'bg-emerald-500/20 text-emerald-400' 
+                                  : 'bg-red-500/20 text-red-400'
+                              }`}>
+                                {p.estado}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <div className="text-xs font-mono opacity-60">{p.fechaCalibracion || 'N/A'}</div>
+                          </td>
+                          <td className="p-4 pr-6 text-right">
+                            <div className="flex justify-end gap-1 opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                              <button 
+                                onClick={() => { setEditingProduct(p); setIsModalOpen(true); }}
+                                className="p-2 hover:bg-white/10 rounded-lg text-white/40 hover:text-white transition-colors"
+                                title="Editar"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                              <button 
+                                onClick={() => handleDelete(p.id!, p.nombre)}
+                                className="p-2 hover:bg-red-500/20 rounded-lg text-white/40 hover:text-red-400 transition-colors"
+                                title="Eliminar"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                            {/* Mobile actions always visible or different */}
+                            <div className="lg:hidden flex justify-end gap-2">
+                              <button onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className="text-white/40">
+                                <Pencil size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
           ))
         )}
       </div>
+
+      <AnimatePresence>
+        {isModalOpen && (
+          <ProductModal 
+            onClose={() => setIsModalOpen(false)} 
+            onSave={fetchData} 
+            editingProduct={editingProduct}
+            locations={locations}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// Reuse/Copy ProductModal logic for consistency
+function ProductModal({ onClose, onSave, editingProduct, locations }: { onClose: () => void; onSave: () => void, editingProduct: Product | null, locations: Location[] }) {
+  const [formData, setFormData] = useState<Partial<Product>>(
+    editingProduct || {
+      nombre: '',
+      marca: '',
+      modelo: '',
+      serie: '',
+      estado: ProductStatus.BUENO,
+      ubicacionId: '',
+      fechaCalibracion: '',
+      documentoCalibracionUrl: ''
+    }
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      if (editingProduct) {
+        await dbService.updateProduct(editingProduct.id!, formData);
+      } else {
+        await dbService.addProduct(formData as any);
+      }
+      onSave();
+      onClose();
+    } catch (error) {
+      alert("Error al guardar el sensor. Revise si la serie ya existe.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/40 backdrop-blur-md">
+      <motion.div 
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="glass rounded-[2rem] lg:rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col h-full lg:h-auto lg:max-h-[90vh]"
+      >
+        <div className="bg-white/5 border-b border-white/10 px-6 py-4 lg:p-6 flex justify-between items-center">
+          <h3 className="text-xl font-light tracking-tight">{editingProduct ? 'Editar' : 'Registrar'} <span className="font-bold">Sensor</span></h3>
+          <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-xl">✕</button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="flex-1 p-6 lg:p-8 space-y-6 overflow-y-auto custom-scrollbar">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Nombre del Sensor</label>
+              <input
+                required
+                type="text"
+                placeholder="Ej: ADCP, Oxígeno..."
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:ring-1 focus:ring-white/40 transition-all text-sm lg:text-base"
+                value={formData.nombre}
+                onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">N° Serie</label>
+              <input
+                required
+                disabled={!!editingProduct}
+                type="text"
+                placeholder="SN-0000"
+                className="w-full bg-white/5 border border-white/20 text-cyan-300 font-mono rounded-xl px-4 py-3 outline-none disabled:opacity-50 text-sm lg:text-base"
+                value={formData.serie}
+                onChange={(e) => setFormData({ ...formData, serie: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Marca</label>
+              <input
+                required
+                type="text"
+                placeholder="Fabricante"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none text-sm lg:text-base"
+                value={formData.marca}
+                onChange={(e) => setFormData({ ...formData, marca: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Modelo</label>
+              <input
+                required
+                type="text"
+                placeholder="Modelo específico"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none text-sm lg:text-base"
+                value={formData.modelo}
+                onChange={(e) => setFormData({ ...formData, modelo: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Estado</label>
+              <select
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base"
+                value={formData.estado}
+                onChange={(e) => setFormData({ ...formData, estado: e.target.value as ProductStatus })}
+              >
+                <option value={ProductStatus.BUENO} className="bg-[#1e293b]">Bueno</option>
+                <option value={ProductStatus.MALO} className="bg-[#1e293b]">Malo</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Boya Asignada</label>
+              <select
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base"
+                value={formData.ubicacionId}
+                onChange={(e) => setFormData({ ...formData, ubicacionId: e.target.value })}
+              >
+                <option value="" className="bg-[#1e293b]">Sin asignar (Libre)</option>
+                {locations.map(l => (
+                  <option key={l.id} value={l.id} className="bg-[#1e293b]">{l.centro}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Fecha Calibración</label>
+              <input
+                type="date"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none [color-scheme:dark] text-sm lg:text-base"
+                value={formData.fechaCalibracion}
+                onChange={(e) => setFormData({ ...formData, fechaCalibracion: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Certificado URL</label>
+              <input
+                type="url"
+                placeholder="https://..."
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none text-sm lg:text-base"
+                value={formData.documentoCalibracionUrl}
+                onChange={(e) => setFormData({ ...formData, documentoCalibracionUrl: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="pb-6 lg:pb-0 pt-4 flex flex-col md:flex-row gap-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="order-2 md:order-1 flex-1 py-4 bg-white/10 rounded-2xl text-xs font-bold uppercase tracking-wider hover:bg-white/20 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              disabled={isSubmitting}
+              type="submit"
+              className="order-1 md:order-2 flex-1 py-4 bg-white text-[#0f172a] rounded-2xl text-xs font-bold uppercase tracking-wider hover:bg-cyan-50 transition-colors disabled:opacity-50"
+            >
+              {isSubmitting ? 'GUARDANDO...' : editingProduct ? 'Actualizar' : 'Registrar'}
+            </button>
+          </div>
+        </form>
+      </motion.div>
     </div>
   );
 }

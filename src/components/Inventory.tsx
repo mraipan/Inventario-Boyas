@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/dbService';
 import { Product, Location, ProductStatus } from '../types';
-import { Plus, Search, Filter, Pencil, Trash2, Download, AlertCircle } from 'lucide-react';
+import { Plus, Search, Filter, Pencil, Trash2, Download, Upload, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import * as XLSX from 'xlsx';
 
 export function Inventory() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -11,6 +12,7 @@ export function Inventory() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchData();
@@ -22,6 +24,164 @@ export function Inventory() {
     setProducts(p || []);
     setLocations(l || []);
     setLoading(false);
+  };
+
+  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const data = evt.target?.result;
+        if (!data) throw new Error("No se pudo leer el archivo");
+        
+        // Use XLSX to parse the content
+        // If it's a CSV, we can also try to detect semicolons manually if xlsx fails
+        const workbook = XLSX.read(data, { 
+          type: typeof data === 'string' ? 'string' : 'array',
+          cellDates: true,
+          cellNF: false,
+          cellText: false
+        });
+
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        
+        let json = XLSX.utils.sheet_to_json(worksheet, { defval: "" }) as any[];
+
+        if (json.length === 0) {
+          alert("El archivo CSV no contiene datos.");
+          return;
+        }
+
+        // DELIMITER FALLBACK: If only one key exists and it contains commas or semicolons, 
+        // it means xlsx failed to detect the delimiter
+        const firstRow = json[0];
+        const firstRowKeys = Object.keys(firstRow);
+        if (firstRowKeys.length === 1 && (firstRowKeys[0].includes(",") || firstRowKeys[0].includes(";"))) {
+          console.log("Detectado error de delimitador. Intentando parse manual...");
+          const delimiter = firstRowKeys[0].includes(";") ? ";" : ",";
+          const csvText = typeof data === 'string' ? data : new TextDecoder().decode(data as ArrayBuffer);
+          const lines = csvText.split(/\r?\n/).filter(line => line.trim() !== "");
+          const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ""));
+          json = lines.slice(1).map(line => {
+            const values = line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ""));
+            const obj: any = {};
+            headers.forEach((h, i) => {
+              obj[h] = values[i] || "";
+            });
+            return obj;
+          });
+        }
+
+        console.log("Datos CSV procesados:", json[0]);
+
+        const productsToImport = json.map((row, index) => {
+          // Normalize string for comparison (remove accents, lowercase, trim)
+          const normalize = (s: string) => 
+            String(s || "").toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+          const getValue = (keys: string[]) => {
+            const rowKeys = Object.keys(row);
+            const normalizedTargetKeys = keys.map(normalize);
+            const foundKey = rowKeys.find(rk => normalizedTargetKeys.includes(normalize(rk)));
+            return foundKey ? row[foundKey] : null;
+          };
+
+          const rowUbicacion = getValue(["Ubicacion", "Ubicación", "Centro", "Lugar", "Ubicacion Equipos", "Ubic"]);
+          const rowCliente = getValue(["Cliente", "Empresa", "Nombre Cliente", "Nombre de Cliente"]);
+          const rowNombre = getValue(["Nombre", "Producto", "Equipo", "Instrumento", "Item"]);
+          const rowMarca = getValue(["Marca", "Fabricante", "Brand"]);
+          const rowModelo = getValue(["Modelo", "Model"]);
+          const rowSerie = getValue(["Serie", "S/N", "Serial", "N/S", "Numero de Serie"]);
+          const rowEstado = getValue(["Estado", "Condicion", "Status"]);
+          const rowFecha = getValue(["Fecha de Calibración", "Fecha Calibración", "Calibracion", "Fecha", "Fecha Calib"]);
+
+          const cleanUbicacion = String(rowUbicacion || "").toLowerCase().trim();
+          const cleanCliente = String(rowCliente || "").toLowerCase().trim();
+
+          const location = locations.find(l => 
+            l.centro.toLowerCase().trim() === cleanUbicacion &&
+            (!cleanCliente || l.nombreCliente.toLowerCase().trim() === cleanCliente)
+          ) || locations.find(l => 
+            l.centro.toLowerCase().trim() === cleanUbicacion
+          );
+
+          let finalEstado = ProductStatus.BUENO;
+          const statusStr = String(rowEstado || "").toLowerCase().trim();
+          if (statusStr.includes("malo") || statusStr.includes("baja") || statusStr.includes("dañado") || statusStr.includes("reparacion")) {
+            finalEstado = ProductStatus.MALO;
+          }
+
+          return {
+            nombre: String(rowNombre || row["Nombre"] || row["nombre"] || `Equipo ${index + 1}`),
+            marca: String(rowMarca || row["Marca"] || row["marca"] || 'N/A'),
+            modelo: String(rowModelo || row["Modelo"] || row["modelo"] || 'N/A'),
+            serie: String(rowSerie || row["Serie"] || row["serie"] || `SN-${index + 1}`),
+            estado: finalEstado,
+            ubicacionId: location?.id || '',
+            fechaCalibracion: rowFecha ? String(rowFecha) : '',
+            documentoCalibracionUrl: String(getValue(["Documento URL", "Documento", "URL", "Link", "Certificado"]) || '')
+          };
+        });
+
+        if (productsToImport.length === 0) {
+          alert("No se pudieron procesar datos del archivo.");
+          return;
+        }
+
+        const confirmImport = confirm(`Se detectaron ${productsToImport.length} registros. ¿Desea proceder con la importación?`);
+        if (!confirmImport) return;
+
+        setLoading(true);
+        await dbService.batchImportProducts(productsToImport);
+        await fetchData();
+        alert(`¡Éxito! Se han importado ${productsToImport.length} registros.`);
+      } catch (error: any) {
+        console.error("Critical CSV Import Error:", error);
+        alert(`Error al procesar el archivo: ${error.message || 'Error desconocido'}`);
+      } finally {
+        setLoading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+
+    reader.onerror = (error) => {
+      console.error("FileReader Error:", error);
+      alert("Error al leer el archivo físico.");
+      setLoading(false);
+    };
+
+    // Use readAsText for better CSV recognition (handling common delimiters)
+    reader.readAsText(file);
+  };
+
+  const exportToExcel = () => {
+    const headers = ["Nombre", "Marca", "Modelo", "Serie", "Estado", "Ubicación", "Cliente", "Fecha de Calibración"];
+    const data = products.map(p => {
+      const location = locations.find(l => l.id === p.ubicacionId);
+      return {
+        "Nombre": p.nombre,
+        "Marca": p.marca,
+        "Modelo": p.modelo,
+        "Serie": p.serie,
+        "Estado": p.estado,
+        "Ubicación": location?.centro || 'N/A',
+        "Cliente": location?.nombreCliente || 'N/A',
+        "Fecha de Calibración": p.fechaCalibracion || 'N/A'
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Inventario");
+    
+    // Auto-size columns (basic approach)
+    const maxWidth = headers.reduce((w, r) => Math.max(w, r.length), 10);
+    worksheet["!cols"] = headers.map(() => ({ wch: maxWidth + 5 }));
+
+    XLSX.writeFile(workbook, `inventario_sensores_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   const filteredProducts = products.filter(p => 
@@ -44,13 +204,38 @@ export function Inventory() {
           <h1 className="text-2xl md:text-3xl font-light tracking-tight">Inventario de <span className="font-bold">Boyas</span></h1>
           <p className="text-[10px] font-mono opacity-50 uppercase tracking-widest mt-1">Control de Equipos y Calibraciones</p>
         </div>
-        <button
-          onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
-          className="w-full md:w-auto bg-white text-[#0f172a] py-3 px-6 rounded-2xl hover:bg-cyan-50 transition-colors font-bold text-sm tracking-wider flex items-center justify-center gap-2"
-        >
-          <Plus size={18} />
-          Nuevo Registro
-        </button>
+        <div className="flex gap-2 w-full md:w-auto">
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleImportCSV} 
+            accept=".csv" 
+            className="hidden" 
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex-1 md:flex-none glass bg-white/5 text-white py-3 px-4 rounded-2xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2 border border-white/5"
+            title="Importar CSV"
+          >
+            <Upload size={18} className="opacity-70" />
+            <span className="md:hidden lg:inline text-xs font-bold uppercase tracking-wider">Importar</span>
+          </button>
+          <button
+            onClick={exportToExcel}
+            className="flex-1 md:flex-none glass bg-white/5 text-white py-3 px-4 rounded-2xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2 border border-white/5"
+            title="Exportar a Excel"
+          >
+            <Download size={18} className="opacity-70" />
+            <span className="md:hidden lg:inline text-xs font-bold uppercase tracking-wider">Exportar</span>
+          </button>
+          <button
+            onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
+            className="flex-[2] md:flex-none bg-white text-[#0f172a] py-3 px-6 rounded-2xl hover:bg-cyan-50 transition-colors font-bold text-sm tracking-wider flex items-center justify-center gap-2"
+          >
+            <Plus size={18} />
+            Nuevo Registro
+          </button>
+        </div>
       </header>
 
       <div className="flex flex-col md:flex-row gap-4">
