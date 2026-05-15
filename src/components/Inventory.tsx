@@ -77,7 +77,7 @@ export function Inventory() {
 
         console.log("Datos CSV procesados:", json[0]);
 
-        const productsToImport = json.map((row, index) => {
+        const productsToImportRaw = json.map((row, index) => {
           // Normalize string for comparison (remove accents, lowercase, trim)
           const normalize = (s: string) => 
             String(s || "").toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -118,7 +118,7 @@ export function Inventory() {
             nombre: String(rowNombre || row["Nombre"] || row["nombre"] || `Equipo ${index + 1}`),
             marca: String(rowMarca || row["Marca"] || row["marca"] || 'N/A'),
             modelo: String(rowModelo || row["Modelo"] || row["modelo"] || 'N/A'),
-            serie: String(rowSerie || row["Serie"] || row["serie"] || `SN-${index + 1}`),
+            serie: String(rowSerie || row["Serie"] || row["serie"] || `SN-${index + 1}`).trim(),
             estado: finalEstado,
             ubicacionId: location?.id || '',
             fechaCalibracion: rowFecha ? String(rowFecha) : '',
@@ -126,18 +126,45 @@ export function Inventory() {
           };
         });
 
-        if (productsToImport.length === 0) {
-          alert("No se pudieron procesar datos del archivo.");
+        // VALIDATION LOGIC: Check for duplicates and existing series
+        const existingSeries = new Set(products.map(p => p.serie.toLowerCase().trim()));
+        const uniqueInFile = new Map<string, any>();
+        const duplicatesInFile: string[] = [];
+        const alreadyExists: string[] = [];
+
+        productsToImportRaw.forEach(product => {
+          const serieKey = product.serie.toLowerCase().trim();
+          if (existingSeries.has(serieKey)) {
+            alreadyExists.push(product.serie);
+          } else if (uniqueInFile.has(serieKey)) {
+            duplicatesInFile.push(product.serie);
+          } else {
+            uniqueInFile.set(serieKey, product);
+          }
+        });
+
+        const finalProductsToImport = Array.from(uniqueInFile.values());
+
+        if (finalProductsToImport.length === 0) {
+          let msg = "No se encontraron registros nuevos para importar.\n\n";
+          if (alreadyExists.length > 0) msg += `- ${alreadyExists.length} registros ya existen en el sistema.\n`;
+          if (duplicatesInFile.length > 0) msg += `- ${duplicatesInFile.length} registros están duplicados en el archivo.\n`;
+          alert(msg);
           return;
         }
 
-        const confirmImport = confirm(`Se detectaron ${productsToImport.length} registros. ¿Desea proceder con la importación?`);
+        let confirmMsg = `Se detectaron ${finalProductsToImport.length} registros nuevos.\n\n`;
+        if (alreadyExists.length > 0) confirmMsg += `⚠️ Se omitirán ${alreadyExists.length} registros que ya existen.\n`;
+        if (duplicatesInFile.length > 0) confirmMsg += `⚠️ Se omitirán ${duplicatesInFile.length} duplicados en el mismo archivo.\n`;
+        confirmMsg += `\n¿Desea proceder con la importación?`;
+
+        const confirmImport = confirm(confirmMsg);
         if (!confirmImport) return;
 
         setLoading(true);
-        await dbService.batchImportProducts(productsToImport);
+        await dbService.batchImportProducts(finalProductsToImport);
         await fetchData();
-        alert(`¡Éxito! Se han importado ${productsToImport.length} registros.`);
+        alert(`¡Éxito! Se han importado ${finalProductsToImport.length} registros nuevos.`);
       } catch (error: any) {
         console.error("Critical CSV Import Error:", error);
         alert(`Error al procesar el archivo: ${error.message || 'Error desconocido'}`);

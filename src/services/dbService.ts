@@ -124,7 +124,8 @@ export const dbService = {
 
       products.forEach((product) => {
         const { id: _, createdAt: __, createdBy: ___, ...cleanProduct } = product as any;
-        const newProductRef = doc(collection(db, 'products'));
+        // Use serie as the document ID for uniqueness enforcement
+        const newProductRef = doc(db, 'products', String(product.serie).trim());
         batch.set(newProductRef, {
           ...cleanProduct,
           createdAt: timestamp,

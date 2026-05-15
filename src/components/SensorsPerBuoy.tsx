@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/dbService';
 import { Product, Location, ProductStatus } from '../types';
-import { Plus, Search, Pencil, Trash2, Cpu, AlertCircle, MapPin, Download } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Cpu, AlertCircle, MapPin, Download, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
 
@@ -13,6 +13,7 @@ export function SensorsPerBuoy() {
   const [selectedLocationId, setSelectedLocationId] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchData();
@@ -32,6 +33,148 @@ export function SensorsPerBuoy() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const data = evt.target?.result;
+        if (!data) throw new Error("No se pudo leer el archivo");
+        
+        const workbook = XLSX.read(data, { 
+          type: typeof data === 'string' ? 'string' : 'array',
+          cellDates: true,
+          cellNF: false,
+          cellText: false
+        });
+
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        let json = XLSX.utils.sheet_to_json(worksheet, { defval: "" }) as any[];
+
+        if (json.length === 0) {
+          alert("El archivo CSV no contiene datos.");
+          return;
+        }
+
+        // Delimiter detection fallback
+        const firstRow = json[0];
+        const firstRowKeys = Object.keys(firstRow);
+        if (firstRowKeys.length === 1 && (firstRowKeys[0].includes(",") || firstRowKeys[0].includes(";"))) {
+          const delimiter = firstRowKeys[0].includes(";") ? ";" : ",";
+          const csvText = typeof data === 'string' ? data : new TextDecoder().decode(data as ArrayBuffer);
+          const lines = csvText.split(/\r?\n/).filter(line => line.trim() !== "");
+          const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ""));
+          json = lines.slice(1).map(line => {
+            const values = line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ""));
+            const obj: any = {};
+            headers.forEach((h, i) => {
+              obj[h] = values[i] || "";
+            });
+            return obj;
+          });
+        }
+
+        const productsToImportRaw = json.map((row, index) => {
+          const normalize = (s: string) => 
+            String(s || "").toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+          const getValue = (keys: string[]) => {
+            const rowKeys = Object.keys(row);
+            const normalizedTargetKeys = keys.map(normalize);
+            const foundKey = rowKeys.find(rk => normalizedTargetKeys.includes(normalize(rk)));
+            return foundKey ? row[foundKey] : null;
+          };
+
+          const rowUbicacion = getValue(["Ubicacion", "Ubicación", "Centro", "Lugar", "Boya"]);
+          const rowCliente = getValue(["Cliente", "Empresa", "Nombre Cliente"]);
+          const rowNombre = getValue(["Nombre", "Producto", "Equipo", "Sensor"]);
+          const rowMarca = getValue(["Marca", "Fabricante"]);
+          const rowModelo = getValue(["Modelo"]);
+          const rowSerie = getValue(["Serie", "S/N", "Serial", "N/S"]);
+          const rowEstado = getValue(["Estado", "Condicion"]);
+          const rowFecha = getValue(["Fecha de Calibración", "Fecha Calibración", "Calibracion"]);
+
+          const cleanUbicacion = String(rowUbicacion || "").toLowerCase().trim();
+          const cleanCliente = String(rowCliente || "").toLowerCase().trim();
+
+          const location = locations.find(l => 
+            l.centro.toLowerCase().trim() === cleanUbicacion &&
+            (!cleanCliente || l.nombreCliente.toLowerCase().trim() === cleanCliente)
+          ) || locations.find(l => 
+            l.centro.toLowerCase().trim() === cleanUbicacion
+          );
+
+          let finalEstado = ProductStatus.BUENO;
+          const statusStr = String(rowEstado || "").toLowerCase().trim();
+          if (statusStr.includes("malo") || statusStr.includes("baja") || statusStr.includes("dañado")) {
+            finalEstado = ProductStatus.MALO;
+          }
+
+          return {
+            nombre: String(rowNombre || row["Nombre"] || row["nombre"] || `Sensor ${index + 1}`),
+            marca: String(rowMarca || row["Marca"] || 'N/A'),
+            modelo: String(rowModelo || row["Modelo"] || 'N/A'),
+            serie: String(rowSerie || row["Serie"] || `SN-${index + 1}`).trim(),
+            estado: finalEstado,
+            ubicacionId: location?.id || '',
+            fechaCalibracion: rowFecha ? String(rowFecha) : '',
+            documentoCalibracionUrl: String(getValue(["Documento URL", "Documento", "URL", "Link", "Certificado"]) || '')
+          };
+        });
+
+        // Validation Logic
+        const existingSeries = new Set(products.map(p => p.serie.toLowerCase().trim()));
+        const uniqueInFile = new Map<string, any>();
+        const duplicatesInFile: string[] = [];
+        const alreadyExists: string[] = [];
+
+        productsToImportRaw.forEach(product => {
+          const serieKey = product.serie.toLowerCase().trim();
+          if (existingSeries.has(serieKey)) {
+            alreadyExists.push(product.serie);
+          } else if (uniqueInFile.has(serieKey)) {
+            duplicatesInFile.push(product.serie);
+          } else {
+            uniqueInFile.set(serieKey, product);
+          }
+        });
+
+        const finalProductsToImport = Array.from(uniqueInFile.values());
+
+        if (finalProductsToImport.length === 0) {
+          let msg = "No se encontraron sensores nuevos para importar.\n\n";
+          if (alreadyExists.length > 0) msg += `- ${alreadyExists.length} registros ya existen.\n`;
+          if (duplicatesInFile.length > 0) msg += `- ${duplicatesInFile.length} registros duplicados en el archivo.\n`;
+          alert(msg);
+          return;
+        }
+
+        let confirmMsg = `Se detectaron ${finalProductsToImport.length} sensores nuevos.\n\n`;
+        if (alreadyExists.length > 0) confirmMsg += `⚠️ Omitiendo ${alreadyExists.length} existentes.\n`;
+        if (duplicatesInFile.length > 0) confirmMsg += `⚠️ Omitiendo ${duplicatesInFile.length} duplicados en el archivo.\n`;
+        confirmMsg += `\n¿Proceder con la importación?`;
+
+        const confirmImport = confirm(confirmMsg);
+        if (!confirmImport) return;
+
+        setLoading(true);
+        await dbService.batchImportProducts(finalProductsToImport);
+        await fetchData();
+        alert(`¡Éxito! Se han importado ${finalProductsToImport.length} sensores nuevos.`);
+      } catch (error: any) {
+        console.error("CSV Import Error:", error);
+        alert(`Error al procesar el archivo: ${error.message}`);
+      } finally {
+        setLoading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+    reader.readAsText(file);
   };
 
   const exportToExcel = () => {
@@ -111,6 +254,21 @@ export function SensorsPerBuoy() {
           <p className="text-[10px] font-mono opacity-50 uppercase tracking-widest mt-1">Sectores y Unidades Operativas</p>
         </div>
         <div className="flex gap-2 w-full md:w-auto">
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleImportCSV} 
+            accept=".csv" 
+            className="hidden" 
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex-1 md:flex-none glass bg-white/5 text-white py-3 px-4 rounded-2xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2 border border-white/5"
+            title="Importar CSV"
+          >
+            <Upload size={18} className="opacity-70" />
+            <span className="md:hidden lg:inline text-xs font-bold uppercase tracking-wider">Importar</span>
+          </button>
           <button
             onClick={exportToExcel}
             className="flex-1 md:flex-none glass bg-white/5 text-white py-3 px-4 rounded-2xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2 border border-white/5"
