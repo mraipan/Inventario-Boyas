@@ -26,13 +26,15 @@ service cloud.firestore {
 
     // --- Product Logic ---
     function isValidProduct(data) {
-      // Must have exactly these fields on create
-      return data.keys().hasAll(['nombre', 'marca', 'modelo', 'serie', 'estado', 'ubicacionId', 'createdAt', 'createdBy'])
+      // Must have at least these keys
+      let requiredKeys = ['nombre', 'marca', 'modelo', 'serie', 'estado', 'ubicacionId', 'createdAt', 'createdBy'];
+      return data.keys().hasAll(requiredKeys)
         && data.nombre is string && data.nombre.size() <= 200
         && data.marca is string && data.marca.size() <= 100
         && data.modelo is string && data.modelo.size() <= 100
         && data.serie is string && data.serie.size() <= 100
-        && data.estado in ['Bueno', 'Malo']
+        && data.estado in ['Bueno', 'Malo', 'Instalado']
+        && (data.estado == 'Instalado' ? (data.get('profundidad', 0) in [5, 10, 30, 50, 60]) : true)
         && data.ubicacionId is string && data.ubicacionId.size() <= 100
         && (data.get('fechaCalibracion', '') is string && data.get('fechaCalibracion', '').size() <= 50)
         && (data.get('documentoCalibracionUrl', '') is string && data.get('documentoCalibracionUrl', '').size() <= 1000)
@@ -56,7 +58,7 @@ service cloud.firestore {
         && incoming().createdAt == existing().createdAt
         && (incoming().get('updatedAt', null) == request.time)
         && (
-          incoming().diff(existing()).affectedKeys().hasOnly(['nombre', 'marca', 'modelo', 'estado', 'ubicacionId', 'fechaCalibracion', 'documentoCalibracionUrl', 'updatedAt'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['nombre', 'marca', 'modelo', 'estado', 'profundidad', 'ubicacionId', 'fechaCalibracion', 'documentoCalibracionUrl', 'updatedAt'])
         );
         
       allow delete: if isSignedIn();

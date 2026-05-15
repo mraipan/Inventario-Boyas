@@ -7,6 +7,7 @@ export enum MovementType {
 export enum ProductStatus {
   BUENO = 'Bueno',
   MALO = 'Malo',
+  INSTALADO = 'Instalado',
 }
 
 export interface Location {
@@ -26,6 +27,7 @@ export interface Product {
   modelo: string;
   serie: string;
   estado: ProductStatus;
+  profundidad?: number;
   ubicacionId: string;
   fechaCalibracion?: string;
   documentoCalibracionUrl?: string;

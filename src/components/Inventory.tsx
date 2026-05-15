@@ -305,6 +305,9 @@ export function Inventory() {
                     <td className="p-6">
                       <div className="font-semibold text-base">{p.nombre}</div>
                       <div className="text-xs opacity-50">{p.marca} • {p.modelo}</div>
+                      {p.estado === ProductStatus.INSTALADO && p.profundidad && (
+                        <div className="text-[10px] text-cyan-400 font-bold mt-1 uppercase tracking-widest">Profundidad: {p.profundidad}m</div>
+                      )}
                     </td>
                     <td className="p-6 text-center font-mono text-cyan-400 font-bold tracking-tight">
                       {p.serie}
@@ -313,6 +316,8 @@ export function Inventory() {
                       <span className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
                         p.estado === ProductStatus.BUENO 
                           ? 'bg-green-500/20 text-green-400' 
+                          : p.estado === ProductStatus.INSTALADO
+                          ? 'bg-cyan-500/20 text-cyan-400'
                           : 'bg-red-500/20 text-red-400'
                       }`}>
                         {p.estado}
@@ -370,6 +375,7 @@ function ProductModal({ onClose, onSave, editingProduct, locations }: { onClose:
       modelo: '',
       serie: '',
       estado: ProductStatus.BUENO,
+      profundidad: undefined,
       ubicacionId: '',
       fechaCalibracion: '',
       documentoCalibracionUrl: ''
@@ -470,23 +476,58 @@ function ProductModal({ onClose, onSave, editingProduct, locations }: { onClose:
               >
                 <option value={ProductStatus.BUENO} className="bg-[#1e293b]">Bueno</option>
                 <option value={ProductStatus.MALO} className="bg-[#1e293b]">Malo</option>
+                <option value={ProductStatus.INSTALADO} className="bg-[#1e293b]">Instalado</option>
               </select>
             </div>
+            {formData.estado === ProductStatus.INSTALADO ? (
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Profundidad (m)</label>
+                <select
+                  required
+                  className="w-full bg-white/5 border border-white/20 text-cyan-300 font-bold rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base"
+                  value={formData.profundidad}
+                  onChange={(e) => setFormData({ ...formData, profundidad: Number(e.target.value) })}
+                >
+                  <option value="" className="bg-[#1e293b]">Seleccionar Profundidad...</option>
+                  {[5, 10, 30, 50, 60].map(d => (
+                    <option key={d} value={d} className="bg-[#1e293b]">{d} metros</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Ubicación Asignada</label>
+                <select
+                  required
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base"
+                  value={formData.ubicacionId}
+                  onChange={(e) => setFormData({ ...formData, ubicacionId: e.target.value })}
+                >
+                  <option value="" className="bg-[#1e293b]">Seleccionar...</option>
+                  {locations.map(l => (
+                    <option key={l.id} value={l.id} className="bg-[#1e293b]">{l.centro} ({l.region})</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {formData.estado === ProductStatus.INSTALADO && (
             <div className="space-y-1.5">
-              <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Ubicación Asignada</label>
+              <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Ubicación de Instalación</label>
               <select
                 required
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base"
                 value={formData.ubicacionId}
                 onChange={(e) => setFormData({ ...formData, ubicacionId: e.target.value })}
               >
-                <option value="" className="bg-[#1e293b]">Seleccionar...</option>
+                <option value="" className="bg-[#1e293b]">Seleccionar Boya/Sede...</option>
                 {locations.map(l => (
                   <option key={l.id} value={l.id} className="bg-[#1e293b]">{l.centro} ({l.region})</option>
                 ))}
               </select>
             </div>
-          </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-1.5">
