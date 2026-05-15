@@ -34,7 +34,7 @@ service cloud.firestore {
         && data.modelo is string && data.modelo.size() <= 100
         && data.serie is string && data.serie.size() <= 100
         && data.estado in ['Bueno', 'Malo', 'Instalado']
-        && (data.estado == 'Instalado' ? (data.get('profundidad', 0) in [5, 10, 30, 50, 60]) : true)
+        && (data.estado == 'Instalado' ? (data.get('profundidad', 0) in [0, 5, 10, 30, 50, 60]) : true)
         && data.ubicacionId is string && data.ubicacionId.size() <= 100
         && (data.get('fechaCalibracion', '') is string && data.get('fechaCalibracion', '').size() <= 50)
         && (data.get('documentoCalibracionUrl', '') is string && data.get('documentoCalibracionUrl', '').size() <= 1000)

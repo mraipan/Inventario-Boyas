@@ -489,7 +489,7 @@ function ProductModal({ onClose, onSave, editingProduct, locations }: { onClose:
                   onChange={(e) => setFormData({ ...formData, profundidad: Number(e.target.value) })}
                 >
                   <option value="" className="bg-[#1e293b]">Seleccionar Profundidad...</option>
-                  {[5, 10, 30, 50, 60].map(d => (
+                  {[0, 5, 10, 30, 50, 60].map(d => (
                     <option key={d} value={d} className="bg-[#1e293b]">{d} metros</option>
                   ))}
                 </select>

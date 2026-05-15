@@ -224,7 +224,18 @@ export function SensorsPerBuoy() {
     
     const locProducts = filteredProducts.filter(p => p.ubicacionId === loc.id);
     if (locProducts.length > 0) {
-      acc.push({ location: loc, products: locProducts });
+      // Sort: 1. Depth (ASC), 2. Name (ASC)
+      const sortedProducts = [...locProducts].sort((a, b) => {
+        const depthA = a.profundidad || 0;
+        const depthB = b.profundidad || 0;
+        
+        if (depthA !== depthB) {
+          return depthA - depthB;
+        }
+        
+        return a.nombre.localeCompare(b.nombre);
+      });
+      acc.push({ location: loc, products: sortedProducts });
     }
     return acc;
   }, [] as { location: Location; products: Product[] }[]);
@@ -241,9 +252,18 @@ export function SensorsPerBuoy() {
       createdAt: new Date() as any, 
       createdBy: 'system' 
     };
+    
+    // Sort unassigned too: 1. Depth (ASC), 2. Name (ASC)
+    const sortedUnassigned = [...unassigned].sort((a, b) => {
+      const depthA = a.profundidad || 0;
+      const depthB = b.profundidad || 0;
+      if (depthA !== depthB) return depthA - depthB;
+      return a.nombre.localeCompare(b.nombre);
+    });
+
     groupedProducts.push({ 
       location: unassignedLoc, 
-      products: unassigned 
+      products: sortedUnassigned 
     });
   }
 
@@ -350,9 +370,9 @@ export function SensorsPerBuoy() {
                     <thead className="text-white/40 border-b border-white/10 bg-white/2">
                       <tr>
                         <th className="p-4 pl-6 font-medium text-[10px] uppercase tracking-widest">Sensor</th>
+                        <th className="p-4 font-medium text-[10px] uppercase tracking-widest text-center">Prof.</th>
                         <th className="p-4 font-medium text-[10px] uppercase tracking-widest text-center">Serie</th>
                         <th className="p-4 font-medium text-[10px] uppercase tracking-widest text-center">Estado</th>
-                        <th className="p-4 font-medium text-[10px] uppercase tracking-widest text-center">Prof.</th>
                         <th className="p-4 font-medium text-[10px] uppercase tracking-widest">Últ. Calib.</th>
                         <th className="p-4 pr-6 font-medium text-[10px] uppercase tracking-widest text-right">Acción</th>
                       </tr>
@@ -363,6 +383,13 @@ export function SensorsPerBuoy() {
                           <td className="p-4 pl-6">
                             <div className="font-semibold text-white/90">{p.nombre}</div>
                             <div className="text-[10px] opacity-40">{p.marca} • {p.modelo}</div>
+                          </td>
+                          <td className="p-4 text-center">
+                            {p.estado === ProductStatus.INSTALADO && p.profundidad !== undefined ? (
+                              <span className="text-xs font-bold text-cyan-400 font-mono">{p.profundidad}m</span>
+                            ) : (
+                              <span className="text-xs opacity-20 font-mono">-</span>
+                            )}
                           </td>
                           <td className="p-4 text-center font-mono text-cyan-400 font-bold tracking-tight">
                             {p.serie}
@@ -379,13 +406,6 @@ export function SensorsPerBuoy() {
                                 {p.estado}
                               </span>
                             </div>
-                          </td>
-                          <td className="p-4 text-center">
-                            {p.estado === ProductStatus.INSTALADO && p.profundidad ? (
-                              <span className="text-xs font-bold text-cyan-400 font-mono">{p.profundidad}m</span>
-                            ) : (
-                              <span className="text-xs opacity-20 font-mono">-</span>
-                            )}
                           </td>
                           <td className="p-4">
                             <div className="text-xs font-mono opacity-60">{p.fechaCalibracion || 'N/A'}</div>
@@ -562,7 +582,7 @@ function ProductModal({ onClose, onSave, editingProduct, locations }: { onClose:
                   onChange={(e) => setFormData({ ...formData, profundidad: Number(e.target.value) })}
                 >
                   <option value="" className="bg-[#1e293b]">Seleccionar Profundidad...</option>
-                  {[5, 10, 30, 50, 60].map(d => (
+                  {[0, 5, 10, 30, 50, 60].map(d => (
                     <option key={d} value={d} className="bg-[#1e293b]">{d} metros</option>
                   ))}
                 </select>
