@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { AutocompleteInput } from './AutocompleteInput';
 import { dbService } from '../services/dbService';
 import { Product, Location, ProductStatus } from '../types';
-import { Plus, Search, Filter, Pencil, Trash2, Download, Upload, AlertCircle } from 'lucide-react';
+import { Plus, Search, Filter, Pencil, Trash2, Download, Upload, AlertCircle, FileText } from 'lucide-react';
+import { CalibrationDocumentField } from './CalibrationDocumentField';
+import { downloadCalibrationDocument } from '../utils/fileHelpers';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
 
@@ -305,7 +307,22 @@ export function Inventory() {
                   <tr key={p.id} className="hover:bg-white/5 group transition-colors">
                     <td className="p-6">
                       <div className="font-semibold text-base">{p.nombre}</div>
-                      <div className="text-xs opacity-50">{p.marca} • {p.modelo}</div>
+                      <div className="text-xs opacity-50 flex items-center gap-2 flex-wrap">
+                        <span>{p.marca} • {p.modelo}</span>
+                        {p.fechaCalibracion && (
+                          <span className="opacity-60">• Calib: {p.fechaCalibracion}</span>
+                        )}
+                        {p.documentoCalibracionUrl && (
+                          <button
+                            onClick={() => downloadCalibrationDocument(p.documentoCalibracionUrl!, p.nombre, p.serie)}
+                            className="inline-flex items-center gap-1.5 text-[10px] font-bold text-cyan-400 hover:text-cyan-300 transition-colors ml-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 px-2 py-0.5 rounded-lg font-mono uppercase tracking-wider"
+                            title="Ver Documento de Calibración"
+                          >
+                            <FileText size={11} />
+                            <span>Doc</span>
+                          </button>
+                        )}
+                      </div>
                       {p.estado === ProductStatus.INSTALADO && p.profundidad && (
                         <div className="text-[10px] text-cyan-400 font-bold mt-1 uppercase tracking-widest">Profundidad: {p.profundidad}m</div>
                       )}
@@ -554,16 +571,12 @@ function ProductModal({ onClose, onSave, editingProduct, locations, products = [
                 onChange={(e) => setFormData({ ...formData, fechaCalibracion: e.target.value })}
               />
             </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Documento URL</label>
-              <input
-                type="url"
-                placeholder="https://..."
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none text-sm lg:text-base"
-                value={formData.documentoCalibracionUrl}
-                onChange={(e) => setFormData({ ...formData, documentoCalibracionUrl: e.target.value })}
-              />
-            </div>
+            <CalibrationDocumentField
+              value={formData.documentoCalibracionUrl || ''}
+              onChange={(val) => setFormData({ ...formData, documentoCalibracionUrl: val })}
+              productName={formData.nombre || ''}
+              serie={formData.serie || ''}
+            />
           </div>
 
           <div className="pb-6 lg:pb-0 pt-4 flex flex-col md:flex-row gap-4">

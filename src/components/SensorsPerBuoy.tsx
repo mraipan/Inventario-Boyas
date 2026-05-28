@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { AutocompleteInput } from './AutocompleteInput';
 import { dbService } from '../services/dbService';
 import { Product, Location, ProductStatus } from '../types';
-import { Plus, Search, Pencil, Trash2, Cpu, AlertCircle, MapPin, Download, Upload } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Cpu, AlertCircle, MapPin, Download, Upload, FileText } from 'lucide-react';
+import { CalibrationDocumentField } from './CalibrationDocumentField';
+import { downloadCalibrationDocument } from '../utils/fileHelpers';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
 
@@ -409,7 +411,19 @@ export function SensorsPerBuoy() {
                             </div>
                           </td>
                           <td className="p-4">
-                            <div className="text-xs font-mono opacity-60">{p.fechaCalibracion || 'N/A'}</div>
+                            <div className="text-xs font-mono opacity-60 flex items-center gap-1.5">
+                              <span>{p.fechaCalibracion || 'N/A'}</span>
+                              {p.documentoCalibracionUrl && (
+                                <button
+                                  onClick={() => downloadCalibrationDocument(p.documentoCalibracionUrl!, p.nombre, p.serie)}
+                                  className="inline-flex items-center gap-1 text-[10px] font-bold text-cyan-400 hover:text-cyan-300 transition-colors bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 px-1.5 py-0.5 rounded font-mono uppercase tracking-wider"
+                                  title="Ver Documento de Calibración"
+                                >
+                                  <FileText size={10} />
+                                  <span>Doc</span>
+                                </button>
+                              )}
+                            </div>
                           </td>
                           <td className="p-4 pr-6 text-right">
                             <div className="flex justify-end gap-1 opacity-0 lg:group-hover:opacity-100 transition-opacity">
@@ -646,16 +660,12 @@ function ProductModal({ onClose, onSave, editingProduct, locations, products = [
                 onChange={(e) => setFormData({ ...formData, fechaCalibracion: e.target.value })}
               />
             </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Certificado URL</label>
-              <input
-                type="url"
-                placeholder="https://..."
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none text-sm lg:text-base"
-                value={formData.documentoCalibracionUrl}
-                onChange={(e) => setFormData({ ...formData, documentoCalibracionUrl: e.target.value })}
-              />
-            </div>
+            <CalibrationDocumentField
+              value={formData.documentoCalibracionUrl || ''}
+              onChange={(val) => setFormData({ ...formData, documentoCalibracionUrl: val })}
+              productName={formData.nombre || ''}
+              serie={formData.serie || ''}
+            />
           </div>
 
           <div className="pb-6 lg:pb-0 pt-4 flex flex-col md:flex-row gap-4">
