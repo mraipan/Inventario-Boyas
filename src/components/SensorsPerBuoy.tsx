@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AutocompleteInput } from './AutocompleteInput';
 import { dbService } from '../services/dbService';
 import { Product, Location, ProductStatus } from '../types';
 import { Plus, Search, Pencil, Trash2, Cpu, AlertCircle, MapPin, Download, Upload } from 'lucide-react';
@@ -452,6 +453,7 @@ export function SensorsPerBuoy() {
             onSave={fetchData} 
             editingProduct={editingProduct}
             locations={locations}
+            products={products}
           />
         )}
       </AnimatePresence>
@@ -460,7 +462,7 @@ export function SensorsPerBuoy() {
 }
 
 // Reuse/Copy ProductModal logic for consistency
-function ProductModal({ onClose, onSave, editingProduct, locations }: { onClose: () => void; onSave: () => void, editingProduct: Product | null, locations: Location[] }) {
+function ProductModal({ onClose, onSave, editingProduct, locations, products = [] }: { onClose: () => void; onSave: () => void, editingProduct: Product | null, locations: Location[], products?: Product[] }) {
   const [formData, setFormData] = useState<Partial<Product>>(
     editingProduct || {
       nombre: '',
@@ -475,6 +477,19 @@ function ProductModal({ onClose, onSave, editingProduct, locations }: { onClose:
     }
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Autocomplete options for predictive text from database only
+  const suggestedNombres = Array.from(new Set(
+    products.map(p => p.nombre).filter(Boolean)
+  ));
+
+  const suggestedMarcas = Array.from(new Set(
+    products.map(p => p.marca).filter(Boolean)
+  ));
+
+  const suggestedModelos = Array.from(new Set(
+    products.map(p => p.modelo).filter(Boolean)
+  ));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -511,13 +526,13 @@ function ProductModal({ onClose, onSave, editingProduct, locations }: { onClose:
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-1.5">
               <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Nombre del Sensor</label>
-              <input
+              <AutocompleteInput
                 required
-                type="text"
                 placeholder="Ej: ADCP, Oxígeno..."
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:ring-1 focus:ring-white/40 transition-all text-sm lg:text-base"
-                value={formData.nombre}
-                onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none text-white text-sm lg:text-base"
+                value={formData.nombre || ''}
+                onChange={(val) => setFormData({ ...formData, nombre: val })}
+                suggestions={suggestedNombres}
               />
             </div>
             <div className="space-y-1.5">
@@ -537,24 +552,24 @@ function ProductModal({ onClose, onSave, editingProduct, locations }: { onClose:
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-1.5">
               <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Marca</label>
-              <input
+              <AutocompleteInput
                 required
-                type="text"
                 placeholder="Fabricante"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none text-sm lg:text-base"
-                value={formData.marca}
-                onChange={(e) => setFormData({ ...formData, marca: e.target.value })}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none text-white text-sm lg:text-base"
+                value={formData.marca || ''}
+                onChange={(val) => setFormData({ ...formData, marca: val })}
+                suggestions={suggestedMarcas}
               />
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Modelo</label>
-              <input
+              <AutocompleteInput
                 required
-                type="text"
                 placeholder="Modelo específico"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none text-sm lg:text-base"
-                value={formData.modelo}
-                onChange={(e) => setFormData({ ...formData, modelo: e.target.value })}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none text-white text-sm lg:text-base"
+                value={formData.modelo || ''}
+                onChange={(val) => setFormData({ ...formData, modelo: val })}
+                suggestions={suggestedModelos}
               />
             </div>
           </div>
