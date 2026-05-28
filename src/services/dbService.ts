@@ -10,7 +10,8 @@ import {
   where, 
   orderBy, 
   serverTimestamp,
-  addDoc
+  addDoc,
+  deleteField
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { OperationType, FirestoreErrorInfo, Product, Location, Movement, MovementType } from '../types';
@@ -71,11 +72,23 @@ export const dbService = {
     try {
       // Ensure we don't send extra fields if they sneak in via 'as any'
       const { id: _, createdAt: __, createdBy: ___, ...cleanProduct } = product as any;
-      const newProduct = {
+      const newProduct: any = {
         ...cleanProduct,
         createdAt: serverTimestamp(),
         createdBy: auth.currentUser?.uid
       };
+
+      if (newProduct.estado !== 'Instalado') {
+        delete newProduct.profundidad;
+      }
+
+      // Safely eliminate any undefined property values
+      Object.keys(newProduct).forEach(key => {
+        if (newProduct[key] === undefined) {
+          delete newProduct[key];
+        }
+      });
+
       await setDoc(doc(db, 'products', product.serie), newProduct);
       await logMovement(product.serie, product.nombre, MovementType.CREATE, `Producto creado: ${product.nombre}`);
     } catch (error) {
@@ -91,10 +104,22 @@ export const dbService = {
       const productSnap = await getDoc(productRef);
       const oldData = productSnap.data();
 
-      const finalUpdates = {
+      const finalUpdates: any = {
         ...dataToUpdate,
         updatedAt: serverTimestamp()
       };
+
+      if (finalUpdates.estado !== 'Instalado') {
+        finalUpdates.profundidad = deleteField();
+      }
+
+      // Safely eliminate any undefined property values
+      Object.keys(finalUpdates).forEach(key => {
+        if (finalUpdates[key] === undefined) {
+          delete finalUpdates[key];
+        }
+      });
+
       await updateDoc(productRef, finalUpdates);
       await logMovement(id, updates.nombre || oldData?.nombre, MovementType.UPDATE, `Producto actualizado: ${updates.nombre || oldData?.nombre}`);
     } catch (error) {
@@ -210,6 +235,29 @@ export const dbService = {
       return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Movement));
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, path);
+    }
+  },
+
+  getFriendlyErrorMessage(error: any): string {
+    try {
+      const rawMessage = error?.message || String(error);
+      if (rawMessage.startsWith('{')) {
+        const parsed = JSON.parse(rawMessage);
+        if (parsed.error) {
+          const detail = parsed.error.toLowerCase();
+          if (detail.includes("permissions") || detail.includes("permission-denied") || detail.includes("insufficient")) {
+            return "Error de validación o permisos. Asegúrese de que el número de serie sea válido (letras, números, espacios, guiones, puntos y símbolos como '#' o ':') y que todos los campos requeridos estén completos.";
+          }
+          return parsed.error;
+        }
+      }
+      return rawMessage;
+    } catch (e) {
+      const rawMessage = error?.message || String(error);
+      if (rawMessage.includes("permissions") || rawMessage.includes("permission-denied") || rawMessage.includes("insufficient")) {
+        return "Error de validación o permisos. Asegúrese de que el número de serie sea válido.";
+      }
+      return rawMessage;
     }
   }
 };

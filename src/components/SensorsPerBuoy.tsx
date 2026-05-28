@@ -487,8 +487,8 @@ function ProductModal({ onClose, onSave, editingProduct, locations }: { onClose:
       }
       onSave();
       onClose();
-    } catch (error) {
-      alert("Error al guardar el sensor. Revise si la serie ya existe.");
+    } catch (error: any) {
+      alert("Error al guardar el sensor: " + dbService.getFriendlyErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }

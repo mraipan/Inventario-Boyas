@@ -394,8 +394,8 @@ function ProductModal({ onClose, onSave, editingProduct, locations }: { onClose:
       }
       onSave();
       onClose();
-    } catch (error) {
-      alert("Error al guardar el producto. Revise si la serie ya existe.");
+    } catch (error: any) {
+      alert("Error al guardar el producto: " + dbService.getFriendlyErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
