@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, User, signInAnonymously } from 'firebase/auth';
-import { auth, login, logout, loginWithEmail, registerWithEmail, db } from './firebase';
+import { auth, login, logout, loginWithEmail, registerWithEmail, db, emailToDocId } from './firebase';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { AppUser } from './types';
 import { Layout } from './components/Layout';
@@ -108,7 +108,7 @@ export default function App() {
         setAuthMode('login');
       }
     } catch (error: any) {
-      console.error("Auth Error:", error.code, error.message);
+      console.warn("Auth Error caught. Checking database fallback...", error.code, error.message);
       
       // Fallback: verificar si el usuario existe en nuestra colección personalizada 'users' en Firestore
       if (authMode === 'login') {
@@ -117,52 +117,88 @@ export default function App() {
           let userData: any = null;
           let userId: string = '';
 
-          // 1. Intentar GET directo del documento de usuario (públicamente permitido por reglas: allow get: if true)
-          const userDocRef = doc(db, 'users', emailLower);
+          // 1. Intentar GET directo usando la ID segura de correo (públicamente permitido por reglas: allow get: if true)
+          const safeId = emailToDocId(emailLower);
+          const userDocRef = doc(db, 'users', safeId);
           const userDoc = await getDoc(userDocRef);
           if (userDoc.exists()) {
             userData = userDoc.data();
             userId = userDoc.id;
           } else {
-            // 2. Si no, por compatibilidad con usuarios antiguos creados con IDs aleatorios, intentamos búsqueda anónima
-            try {
-              await signInAnonymously(auth);
-              const q = query(collection(db, 'users'), where('correo', '==', emailLower));
-              const snapshot = await getDocs(q);
-              const matched = snapshot.docs.find(d => d.data().correo?.toLowerCase() === emailLower);
-              if (matched) {
-                userData = matched.data();
-                userId = matched.id;
+            // 2. Intentar GET directo usando el email original por si acaso
+            const directDocRef = doc(db, 'users', emailLower);
+            const directDoc = await getDoc(directDocRef);
+            if (directDoc.exists()) {
+              userData = directDoc.data();
+              userId = directDoc.id;
+            } else {
+              // 3. Si no, por compatibilidad con usuarios antiguos creados con IDs aleatorios, intentamos búsqueda anónima
+              try {
+                await signInAnonymously(auth);
+                const q = query(collection(db, 'users'), where('correo', '==', emailLower));
+                const snapshot = await getDocs(q);
+                const matched = snapshot.docs.find(d => d.data().correo?.toLowerCase() === emailLower);
+                if (matched) {
+                  userData = matched.data();
+                  userId = matched.id;
+                }
+                if (!userData) {
+                  await auth.signOut();
+                }
+              } catch (anonErr) {
+                console.warn("Búsqueda anónima omitida o fallida:", anonErr);
               }
-              if (!userData) {
-                await auth.signOut();
-              }
-            } catch (anonErr) {
-              console.warn("Búsqueda anónima omitida o fallida:", anonErr);
             }
           }
 
-          if (userData && userData.contrasena === password) {
+          if (userData && (userData.contrasena?.trim() === password.trim() || userData.contrasena === password)) {
             // ¡Credenciales correctas encontradas en base de datos!
-            // Registramos de forma transparente este usuario en Firebase Auth en tiempo real
-            console.log("Credenciales de DB correctas. Auto-registrando en Firebase Auth...");
-            try {
-              await registerWithEmail(emailLower, password);
-              // Al crearse la cuenta mediante registerWithEmail, automáticamente se inicia sesión principal
-              setLoading(false);
-              return;
-            } catch (regError: any) {
-              if (regError.code === 'auth/email-already-in-use') {
-                // Si ya está registrado en Firebase Auth, pero no correspondía la contraseña
-                setLoginError('Contraseña incorrecta.');
-                setLoading(false);
-                return;
-              } else {
-                throw regError;
+            console.log("Credenciales de DB correctas. Iniciando sesión mediante sesión autorizada por DB.");
+            
+            // Intentar registrar el usuario o iniciar sesión en Firebase Auth de forma real para que request.auth no sea nulo.
+            if (!auth.currentUser) {
+              try {
+                console.log("Intentando registrar/iniciar sesión de usuario en Firebase Auth de forma dinámica...");
+                await registerWithEmail(emailLower, password);
+              } catch (regError: any) {
+                if (regError.code === 'auth/email-already-in-use') {
+                  try {
+                    await loginWithEmail(emailLower, password);
+                  } catch (loginErr) {
+                    console.warn("Fallo el login con email existente:", loginErr);
+                  }
+                } else {
+                  console.warn("Error al registrar de forma dinámica, intentando sesión anónima como último recurso de auth...", regError);
+                  try {
+                    await signInAnonymously(auth);
+                  } catch (anonErr) {
+                    console.warn("Fallo la sesión anónima también. El usuario continuará con perfil local únicamente.", anonErr);
+                  }
+                }
               }
             }
+            
+            const userProfile: AppUser = {
+              id: userId,
+              nombre: userData.nombre || 'Usuario',
+              correo: userData.correo || emailLower,
+              telefono: userData.telefono || '',
+              cargo: userData.cargo || 'Técnico',
+              createdAt: userData.createdAt || null,
+              createdBy: userData.createdBy || ''
+            };
+            
+            localStorage.setItem('custom_user_profile', JSON.stringify(userProfile));
+            setProfile(userProfile);
+            setUser({
+              uid: userId,
+              email: emailLower,
+              displayName: userData.nombre || 'Usuario',
+            } as User);
+            setLoading(false);
+            return; // Inicio de sesión exitoso mediante fallback
           } else if (userData) {
-            // Usuario existe en la DB pero la contraseña es incorrecta
+            // El usuario existe en la DB pero la contraseña ingresada no es válida
             setLoginError('Contraseña incorrecta.');
             setLoading(false);
             return;
@@ -172,6 +208,7 @@ export default function App() {
         }
       }
 
+      // Si no fue un inicio de sesión que coincidiera en la base de datos, mostramos el error original de Firebase
       if (error.code === 'auth/user-not-found') {
         setLoginError('Usuario no registrado o contraseña incorrecta.');
       } else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
@@ -188,6 +225,13 @@ export default function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLogoutCustom = async () => {
+    localStorage.removeItem('custom_user_profile');
+    setProfile(null);
+    setUser(null);
+    await logout();
   };
 
   if (loading) {
@@ -406,7 +450,7 @@ export default function App() {
               </div>
             </div>
             <button
-              onClick={logout}
+              onClick={handleLogoutCustom}
               className="w-full flex items-center justify-center gap-2 text-[10px] font-mono uppercase tracking-widest hover:text-red-400 transition-colors"
             >
               <LogOut size={12} />

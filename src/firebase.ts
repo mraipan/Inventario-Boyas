@@ -17,6 +17,12 @@ export const db = initializeFirestore(app, {
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
+export function emailToDocId(email: string): string {
+  return email.toLowerCase().trim()
+    .replace(/@/g, '_at_')
+    .replace(/\./g, '_dot_');
+}
+
 // Create a secondary app helper to avoid logging out the current admin user when creating a new user
 export async function registerAuthUserWithoutLoggingOut(email: string, pass: string) {
   const secondaryAppName = 'SecondaryAuthApp';

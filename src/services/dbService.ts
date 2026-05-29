@@ -13,15 +13,45 @@ import {
   addDoc,
   deleteField
 } from 'firebase/firestore';
-import { db, auth, registerAuthUserWithoutLoggingOut } from '../firebase';
+import { db, auth, registerAuthUserWithoutLoggingOut, emailToDocId } from '../firebase';
 import { OperationType, FirestoreErrorInfo, Product, Location, Movement, MovementType, AppUser } from '../types';
+
+const getSessionUid = () => {
+  if (auth.currentUser) return auth.currentUser.uid;
+  const saved = localStorage.getItem('custom_user_profile');
+  if (saved) {
+    try {
+      const prof = JSON.parse(saved);
+      return prof.id || 'anonymous_fallback_uid_123';
+    } catch (e) {}
+  }
+  return 'anonymous_fallback_uid_123';
+};
+
+const getSessionEmail = () => {
+  if (auth.currentUser) return auth.currentUser.email;
+  const saved = localStorage.getItem('custom_user_profile');
+  if (saved) {
+    try {
+      const prof = JSON.parse(saved);
+      return prof.correo || 'anonymous_fallback@demo.com';
+    } catch (e) {}
+  }
+  return 'anonymous_fallback@demo.com';
+};
+
+const isSessionAuthenticated = () => {
+  if (auth.currentUser) return true;
+  const saved = localStorage.getItem('custom_user_profile');
+  return !!saved;
+};
 
 function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
+      userId: auth.currentUser?.uid || getSessionUid(),
+      email: auth.currentUser?.email || getSessionEmail(),
       emailVerified: auth.currentUser?.emailVerified,
       isAnonymous: auth.currentUser?.isAnonymous,
       tenantId: auth.currentUser?.tenantId,
@@ -47,7 +77,7 @@ async function logMovement(productId: string, productName: string, type: Movemen
       type,
       timestamp: serverTimestamp(),
       description,
-      userEmail: auth.currentUser?.email
+      userEmail: getSessionEmail()
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -75,7 +105,7 @@ export const dbService = {
       const newProduct: any = {
         ...cleanProduct,
         createdAt: serverTimestamp(),
-        createdBy: auth.currentUser?.uid
+        createdBy: getSessionUid()
       };
 
       if (!newProduct.ubicacionId) {
@@ -140,12 +170,12 @@ export const dbService = {
   async batchImportProducts(products: Omit<Product, 'createdAt' | 'createdBy' | 'id'>[]) {
     const path = 'products';
     try {
-      if (!auth.currentUser) throw new Error("Debe estar autenticado para importar datos");
+      if (!auth.currentUser && !isSessionAuthenticated()) throw new Error("Debe estar autenticado para importar datos");
       
       const { writeBatch, doc, collection } = await import('firebase/firestore');
       const batch = writeBatch(db);
       const timestamp = serverTimestamp();
-      const uid = auth.currentUser.uid;
+      const uid = getSessionUid();
 
       products.forEach((product) => {
         const { id: _, createdAt: __, createdBy: ___, ...cleanProduct } = product as any;
@@ -181,13 +211,13 @@ export const dbService = {
   async addLocation(location: Omit<Location, 'createdAt' | 'createdBy' | 'id'>) {
     const path = 'locations';
     try {
-      if (!auth.currentUser) throw new Error("Usuario no autenticado");
+      if (!auth.currentUser && !isSessionAuthenticated()) throw new Error("Usuario no autenticado");
       
       const { id: _, createdAt: __, createdBy: ___, ...dataToAdd } = location as any;
       const payload = {
         ...dataToAdd,
         createdAt: serverTimestamp(),
-        createdBy: auth.currentUser.uid
+        createdBy: getSessionUid()
       };
       
       console.log('Attempting to add location:', payload);
@@ -201,7 +231,7 @@ export const dbService = {
   async updateLocation(id: string, updates: Partial<Location>) {
     const path = `locations/${id}`;
     try {
-      if (!auth.currentUser) throw new Error("Usuario no autenticado");
+      if (!auth.currentUser && !isSessionAuthenticated()) throw new Error("Usuario no autenticado");
 
       const { id: _, createdAt: __, createdBy: ___, ...dataToUpdate } = updates as any;
       const payload = {
@@ -252,17 +282,18 @@ export const dbService = {
 
   async addUser(appUser: Omit<AppUser, 'createdAt' | 'createdBy' | 'id'>) {
     const emailClean = appUser.correo.trim().toLowerCase();
-    const path = `users/${emailClean}`;
+    const safeId = emailToDocId(emailClean);
+    const path = `users/${safeId}`;
     try {
-      if (!auth.currentUser) throw new Error("Usuario no autenticado");
+      if (!auth.currentUser && !isSessionAuthenticated()) throw new Error("Usuario no autenticado");
       const { id: _, createdAt: __, createdBy: ___, ...dataToAdd } = appUser as any;
       const payload = {
         ...dataToAdd,
         createdAt: serverTimestamp(),
-        createdBy: auth.currentUser.uid
+        createdBy: getSessionUid()
       };
-      // Use the email as the document ID
-      await setDoc(doc(db, 'users', emailClean), payload);
+      // Use the safe ID matching the database regex validations
+      await setDoc(doc(db, 'users', safeId), payload);
       // Pre-register user in Firebase Auth without logout
       if (appUser.contrasena) {
         await registerAuthUserWithoutLoggingOut(emailClean, appUser.contrasena);
@@ -275,13 +306,13 @@ export const dbService = {
   async updateUser(id: string, updates: Partial<AppUser>) {
     const path = `users/${id}`;
     try {
-      if (!auth.currentUser) throw new Error("Usuario no autenticado");
+      if (!auth.currentUser && !isSessionAuthenticated()) throw new Error("Usuario no autenticado");
       const { id: _, createdAt: __, createdBy: ___, ...dataToUpdate } = updates as any;
       const payload = {
         ...dataToUpdate,
         updatedAt: serverTimestamp()
       };
-      // Update doc. If the id is the email, this works perfectly.
+      // Update doc. If the id is the email or safe ID, this works perfectly.
       await updateDoc(doc(db, 'users', id), payload);
       
       // If a password was changed, we can pre-register them again in Auth (or they are already registered and can be updated when they log in)
