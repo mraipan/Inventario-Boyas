@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AutocompleteInput } from './AutocompleteInput';
 import { dbService } from '../services/dbService';
-import { Product, Location, ProductStatus } from '../types';
+import { Product, Location, ProductHealth } from '../types';
 import { Plus, Search, Filter, Pencil, Trash2, Download, Upload, AlertCircle, FileText } from 'lucide-react';
 import { CalibrationDocumentField } from './CalibrationDocumentField';
 import { downloadCalibrationDocument } from '../utils/fileHelpers';
@@ -111,10 +111,10 @@ export function Inventory() {
             l.centro.toLowerCase().trim() === cleanUbicacion
           );
 
-          let finalEstado = ProductStatus.BUENO;
+          let finalHealth = ProductHealth.BUENO;
           const statusStr = String(rowEstado || "").toLowerCase().trim();
-          if (statusStr.includes("malo") || statusStr.includes("baja") || statusStr.includes("dañado") || statusStr.includes("reparacion")) {
-            finalEstado = ProductStatus.MALO;
+          if (statusStr.includes("malo") || statusStr.includes("defect") || statusStr.includes("dañ") || statusStr.includes("falla") || statusStr.includes("baja")) {
+            finalHealth = ProductHealth.DEFECTUOSO;
           }
 
           return {
@@ -122,7 +122,7 @@ export function Inventory() {
             marca: String(rowMarca || row["Marca"] || row["marca"] || 'N/A'),
             modelo: String(rowModelo || row["Modelo"] || row["modelo"] || 'N/A'),
             serie: String(rowSerie || row["Serie"] || row["serie"] || `SN-${index + 1}`).trim(),
-            estado: finalEstado,
+            estadoSalud: finalHealth,
             ubicacionId: location?.id || '',
             fechaCalibracion: rowFecha ? String(rowFecha) : '',
             documentoCalibracionUrl: String(getValue(["Documento URL", "Documento", "URL", "Link", "Certificado"]) || '')
@@ -188,7 +188,7 @@ export function Inventory() {
   };
 
   const exportToExcel = () => {
-    const headers = ["Nombre", "Marca", "Modelo", "Serie", "Estado", "Ubicación", "Cliente", "Fecha de Calibración"];
+    const headers = ["Nombre", "Marca", "Modelo", "Serie", "Estado de Salud", "Ubicación", "Cliente", "Fecha de Calibración"];
     const data = products.map(p => {
       const location = locations.find(l => l.id === p.ubicacionId);
       return {
@@ -196,7 +196,7 @@ export function Inventory() {
         "Marca": p.marca,
         "Modelo": p.modelo,
         "Serie": p.serie,
-        "Estado": p.estado,
+        "Estado de Salud": p.estadoSalud || ProductHealth.BUENO,
         "Ubicación": location?.centro || 'N/A',
         "Cliente": location?.nombreCliente || 'N/A',
         "Fecha de Calibración": p.fechaCalibracion || 'N/A'
@@ -288,7 +288,7 @@ export function Inventory() {
               <tr>
                 <th className="p-6 font-medium text-xs uppercase tracking-widest">Producto / Marca</th>
                 <th className="p-6 font-medium text-xs uppercase tracking-widest text-center">Serie</th>
-                <th className="p-6 font-medium text-xs uppercase tracking-widest text-center">Estado</th>
+                <th className="p-6 font-medium text-xs uppercase tracking-widest text-center">Estado de Salud</th>
                 <th className="p-6 font-medium text-xs uppercase tracking-widest">Ubicación</th>
                 <th className="p-6 font-medium text-xs uppercase tracking-widest text-right">Acción</th>
               </tr>
@@ -314,16 +314,16 @@ export function Inventory() {
                         )}
                         {p.documentoCalibracionUrl && (
                           <button
-                            onClick={() => downloadCalibrationDocument(p.documentoCalibracionUrl!, p.nombre, p.serie)}
-                            className="inline-flex items-center gap-1.5 text-[10px] font-bold text-cyan-400 hover:text-cyan-300 transition-colors ml-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 px-2 py-0.5 rounded-lg font-mono uppercase tracking-wider"
-                            title="Ver Documento de Calibración"
-                          >
+                             onClick={() => downloadCalibrationDocument(p.documentoCalibracionUrl!, p.nombre, p.serie)}
+                             className="inline-flex items-center gap-1.5 text-[10px] font-bold text-cyan-400 hover:text-cyan-300 transition-colors ml-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 px-2 py-0.5 rounded-lg font-mono uppercase tracking-wider"
+                             title="Ver Documento de Calibración"
+                           >
                             <FileText size={11} />
                             <span>Doc</span>
                           </button>
                         )}
                       </div>
-                      {p.estado === ProductStatus.INSTALADO && p.profundidad && (
+                      {p.profundidad && (
                         <div className="text-[10px] text-cyan-400 font-bold mt-1 uppercase tracking-widest">Profundidad: {p.profundidad}m</div>
                       )}
                     </td>
@@ -332,13 +332,11 @@ export function Inventory() {
                     </td>
                     <td className="p-6 text-center">
                       <span className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
-                        p.estado === ProductStatus.BUENO 
-                          ? 'bg-green-500/20 text-green-400' 
-                          : p.estado === ProductStatus.INSTALADO
-                          ? 'bg-cyan-500/20 text-cyan-400'
+                        (p.estadoSalud === ProductHealth.BUENO || !p.estadoSalud)
+                          ? 'bg-emerald-500/20 text-emerald-400'
                           : 'bg-red-500/20 text-red-400'
                       }`}>
-                        {p.estado}
+                        {p.estadoSalud || ProductHealth.BUENO}
                       </span>
                     </td>
                     <td className="p-6">
@@ -387,19 +385,34 @@ export function Inventory() {
 }
 
 function ProductModal({ onClose, onSave, editingProduct, locations, products = [] }: { onClose: () => void; onSave: () => void, editingProduct: Product | null, locations: Location[], products?: Product[] }) {
-  const [formData, setFormData] = useState<Partial<Product>>(
-    editingProduct || {
+  const [formData, setFormData] = useState<Partial<Product>>(() => {
+    if (editingProduct) {
+      let mappedHealth = editingProduct.estadoSalud;
+      if (!mappedHealth) {
+        if (editingProduct.estado as any === 'Malo') {
+          mappedHealth = ProductHealth.DEFECTUOSO;
+        } else {
+          mappedHealth = ProductHealth.BUENO;
+        }
+      }
+
+      return {
+        ...editingProduct,
+        estadoSalud: mappedHealth
+      };
+    }
+    return {
       nombre: '',
       marca: '',
       modelo: '',
       serie: '',
-      estado: ProductStatus.BUENO,
+      estadoSalud: ProductHealth.BUENO,
       profundidad: undefined,
       ubicacionId: '',
       fechaCalibracion: '',
       documentoCalibracionUrl: ''
-    }
-  );
+    };
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Autocomplete options for predictive text from database only
@@ -500,23 +513,38 @@ function ProductModal({ onClose, onSave, editingProduct, locations, products = [
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Estado Físico</label>
+              <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1 text-white/50">Ubicación (Boya / Cliente)</label>
               <select
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base"
-                value={formData.estado}
-                onChange={(e) => setFormData({ ...formData, estado: e.target.value as ProductStatus })}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base text-white font-medium cursor-pointer focus:border-cyan-400/50"
+                value={formData.ubicacionId || ''}
+                onChange={(e) => setFormData({ ...formData, ubicacionId: e.target.value })}
               >
-                <option value={ProductStatus.BUENO} className="bg-[#1e293b]">Bueno</option>
-                <option value={ProductStatus.MALO} className="bg-[#1e293b]">Malo</option>
-                <option value={ProductStatus.INSTALADO} className="bg-[#1e293b]">Instalado</option>
+                <option value="" className="bg-[#1e293b]">-- Sin Ubicación (En Stock) --</option>
+                {locations.map(l => (
+                  <option key={l.id} value={l.id} className="bg-[#1e293b]">{l.centro} ({l.region}) - {l.nombreCliente}</option>
+                ))}
               </select>
             </div>
-            {formData.estado === ProductStatus.INSTALADO ? (
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1 text-white/50">Estado de Salud</label>
+              <select
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base text-white font-medium cursor-pointer focus:border-cyan-400/50"
+                value={formData.estadoSalud || ProductHealth.BUENO}
+                onChange={(e) => setFormData({ ...formData, estadoSalud: e.target.value as ProductHealth })}
+              >
+                <option value={ProductHealth.BUENO} className="bg-[#1e293b]">Bueno</option>
+                <option value={ProductHealth.DEFECTUOSO} className="bg-[#1e293b]">Defectuoso</option>
+              </select>
+            </div>
+          </div>
+
+          {formData.ubicacionId && (
+            <div className="grid grid-cols-1 gap-6">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Profundidad (m)</label>
+                <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1 text-white/50">Profundidad de Instalación (m)</label>
                 <select
                   required
-                  className="w-full bg-white/5 border border-white/20 text-cyan-300 font-bold rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base"
+                  className="w-full bg-white/5 border border-white/20 text-cyan-300 font-bold rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base cursor-pointer focus:border-cyan-400/50"
                   value={formData.profundidad}
                   onChange={(e) => setFormData({ ...formData, profundidad: Number(e.target.value) })}
                 >
@@ -526,38 +554,6 @@ function ProductModal({ onClose, onSave, editingProduct, locations, products = [
                   ))}
                 </select>
               </div>
-            ) : (
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Ubicación Asignada</label>
-                <select
-                  required
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base"
-                  value={formData.ubicacionId}
-                  onChange={(e) => setFormData({ ...formData, ubicacionId: e.target.value })}
-                >
-                  <option value="" className="bg-[#1e293b]">Seleccionar...</option>
-                  {locations.map(l => (
-                    <option key={l.id} value={l.id} className="bg-[#1e293b]">{l.centro} ({l.region})</option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-
-          {formData.estado === ProductStatus.INSTALADO && (
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Ubicación de Instalación</label>
-              <select
-                required
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base"
-                value={formData.ubicacionId}
-                onChange={(e) => setFormData({ ...formData, ubicacionId: e.target.value })}
-              >
-                <option value="" className="bg-[#1e293b]">Seleccionar Boya/Sede...</option>
-                {locations.map(l => (
-                  <option key={l.id} value={l.id} className="bg-[#1e293b]">{l.centro} ({l.region})</option>
-                ))}
-              </select>
             </div>
           )}
 

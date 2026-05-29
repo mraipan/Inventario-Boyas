@@ -78,7 +78,7 @@ export const dbService = {
         createdBy: auth.currentUser?.uid
       };
 
-      if (newProduct.estado !== 'Instalado') {
+      if (!newProduct.ubicacionId) {
         delete newProduct.profundidad;
       }
 
@@ -109,7 +109,7 @@ export const dbService = {
         updatedAt: serverTimestamp()
       };
 
-      if (finalUpdates.estado !== 'Instalado') {
+      if (finalUpdates.hasOwnProperty('ubicacionId') && !finalUpdates.ubicacionId) {
         finalUpdates.profundidad = deleteField();
       }
 

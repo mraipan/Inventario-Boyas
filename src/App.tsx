@@ -12,10 +12,11 @@ import { Inventory } from './components/Inventory';
 import { LocationManager } from './components/LocationManager';
 import { Reports } from './components/Reports';
 import { SensorsPerBuoy } from './components/SensorsPerBuoy';
-import { Package, MapPin, BarChart3, History, LogIn, LogOut, ShieldCheck, UserPlus, Menu, X, Cpu } from 'lucide-react';
+import { Maintenance } from './components/Maintenance';
+import { Package, MapPin, BarChart3, History, LogIn, LogOut, ShieldCheck, UserPlus, Menu, X, Cpu, Wrench } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-type View = 'dashboard' | 'inventory' | 'locations' | 'reports' | 'sensors';
+type View = 'dashboard' | 'inventory' | 'locations' | 'reports' | 'sensors' | 'maintenance';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -249,6 +250,12 @@ export default function App() {
               label="Sensores por Boya"
             />
             <NavButton 
+              active={currentView === 'maintenance'} 
+              onClick={() => { setCurrentView('maintenance'); setIsSidebarOpen(false); }}
+              icon={<Wrench size={18} />}
+              label="Mantención"
+            />
+            <NavButton 
               active={currentView === 'reports'} 
               onClick={() => { setCurrentView('reports'); setIsSidebarOpen(false); }}
               icon={<History size={18} />}
@@ -292,6 +299,7 @@ export default function App() {
                 {currentView === 'inventory' && <Inventory />}
                 {currentView === 'locations' && <LocationManager />}
                 {currentView === 'sensors' && <SensorsPerBuoy />}
+                {currentView === 'maintenance' && <Maintenance />}
                 {currentView === 'reports' && <Reports />}
               </div>
             </motion.div>

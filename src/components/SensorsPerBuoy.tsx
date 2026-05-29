@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AutocompleteInput } from './AutocompleteInput';
 import { dbService } from '../services/dbService';
-import { Product, Location, ProductStatus } from '../types';
+import { Product, Location, ProductHealth } from '../types';
 import { Plus, Search, Pencil, Trash2, Cpu, AlertCircle, MapPin, Download, Upload, FileText } from 'lucide-react';
 import { CalibrationDocumentField } from './CalibrationDocumentField';
 import { downloadCalibrationDocument } from '../utils/fileHelpers';
@@ -17,6 +17,12 @@ export function SensorsPerBuoy() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const [addingForLocationId, setAddingForLocationId] = useState<string | null>(null);
+  const [selectedProductName, setSelectedProductName] = useState<string>('');
+  const [selectedProductId, setSelectedProductId] = useState<string>('');
+  const [selectedDepth, setSelectedDepth] = useState<number>(0);
+  const [isAssigning, setIsAssigning] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -112,10 +118,10 @@ export function SensorsPerBuoy() {
             l.centro.toLowerCase().trim() === cleanUbicacion
           );
 
-          let finalEstado = ProductStatus.BUENO;
+          let finalHealth = ProductHealth.BUENO;
           const statusStr = String(rowEstado || "").toLowerCase().trim();
-          if (statusStr.includes("malo") || statusStr.includes("baja") || statusStr.includes("dañado")) {
-            finalEstado = ProductStatus.MALO;
+          if (statusStr.includes("malo") || statusStr.includes("defect") || statusStr.includes("dañ") || statusStr.includes("falla") || statusStr.includes("baja")) {
+            finalHealth = ProductHealth.DEFECTUOSO;
           }
 
           return {
@@ -123,7 +129,7 @@ export function SensorsPerBuoy() {
             marca: String(rowMarca || row["Marca"] || 'N/A'),
             modelo: String(rowModelo || row["Modelo"] || 'N/A'),
             serie: String(rowSerie || row["Serie"] || `SN-${index + 1}`).trim(),
-            estado: finalEstado,
+            estadoSalud: finalHealth,
             ubicacionId: location?.id || '',
             fechaCalibracion: rowFecha ? String(rowFecha) : '',
             documentoCalibracionUrl: String(getValue(["Documento URL", "Documento", "URL", "Link", "Certificado"]) || '')
@@ -181,7 +187,7 @@ export function SensorsPerBuoy() {
   };
 
   const exportToExcel = () => {
-    const headers = ["Boya", "Sensor", "Marca", "Modelo", "Serie", "Estado", "Profundidad", "Última Calibración"];
+    const headers = ["Boya", "Sensor", "Marca", "Modelo", "Serie", "Estado de Salud", "Profundidad", "Última Calibración"];
     const data = groupedProducts.flatMap(({ location, products }) => 
       products.map(p => ({
         "Boya": location.centro,
@@ -189,7 +195,7 @@ export function SensorsPerBuoy() {
         "Marca": p.marca,
         "Modelo": p.modelo,
         "Serie": p.serie,
-        "Estado": p.estado,
+        "Estado de Salud": p.estadoSalud || ProductHealth.BUENO,
         "Profundidad": p.profundidad ? `${p.profundidad}m` : 'N/A',
         "Última Calibración": p.fechaCalibracion || 'N/A'
       }))
@@ -208,6 +214,36 @@ export function SensorsPerBuoy() {
     if (confirm(`¿Está seguro de eliminar el sensor ${nombre}?`)) {
       await dbService.deleteProduct(id, nombre);
       fetchData();
+    }
+  };
+
+  const getAvailableSensorsForLocation = (locationId: string) => {
+    // Filter products that are not currently assigned to this location,
+    // AND whose current location (centro) contains "bodega" (case-insensitive)
+    return products.filter(p => {
+      if (p.ubicacionId === locationId) return false;
+      const sensorLocation = locations.find(l => l.id === p.ubicacionId);
+      return sensorLocation && sensorLocation.centro.toLowerCase().includes('bodega');
+    });
+  };
+
+  const handleAssignSensor = async (locationId: string) => {
+    if (!selectedProductId) return;
+    setIsAssigning(true);
+    try {
+      await dbService.updateProduct(selectedProductId, {
+        ubicacionId: locationId,
+        profundidad: selectedDepth
+      });
+      await fetchData();
+      setAddingForLocationId(null);
+      setSelectedProductName('');
+      setSelectedProductId('');
+      setSelectedDepth(0);
+    } catch (error: any) {
+      alert("Error al asignar el sensor: " + error.message);
+    } finally {
+      setIsAssigning(false);
     }
   };
 
@@ -375,7 +411,7 @@ export function SensorsPerBuoy() {
                         <th className="p-4 pl-6 font-medium text-[10px] uppercase tracking-widest">Sensor</th>
                         <th className="p-4 font-medium text-[10px] uppercase tracking-widest text-center">Prof.</th>
                         <th className="p-4 font-medium text-[10px] uppercase tracking-widest text-center">Serie</th>
-                        <th className="p-4 font-medium text-[10px] uppercase tracking-widest text-center">Estado</th>
+                        <th className="p-4 font-medium text-[10px] uppercase tracking-widest text-center">Salud</th>
                         <th className="p-4 font-medium text-[10px] uppercase tracking-widest">Últ. Calib.</th>
                         <th className="p-4 pr-6 font-medium text-[10px] uppercase tracking-widest text-right">Acción</th>
                       </tr>
@@ -388,7 +424,7 @@ export function SensorsPerBuoy() {
                             <div className="text-[10px] opacity-40">{p.marca} • {p.modelo}</div>
                           </td>
                           <td className="p-4 text-center">
-                            {p.estado === ProductStatus.INSTALADO && p.profundidad !== undefined ? (
+                            {p.profundidad !== undefined ? (
                               <span className="text-xs font-bold text-cyan-400 font-mono">{p.profundidad}m</span>
                             ) : (
                               <span className="text-xs opacity-20 font-mono">-</span>
@@ -400,13 +436,11 @@ export function SensorsPerBuoy() {
                           <td className="p-4 text-center">
                             <div className="flex justify-center">
                               <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider ${
-                                p.estado === ProductStatus.BUENO 
-                                  ? 'bg-emerald-500/20 text-emerald-400' 
-                                  : p.estado === ProductStatus.INSTALADO
-                                  ? 'bg-cyan-500/20 text-cyan-400'
+                                (p.estadoSalud === ProductHealth.BUENO || !p.estadoSalud)
+                                  ? 'bg-emerald-500/20 text-emerald-400'
                                   : 'bg-red-500/20 text-red-400'
                               }`}>
-                                {p.estado}
+                                {p.estadoSalud || ProductHealth.BUENO}
                               </span>
                             </div>
                           </td>
@@ -455,6 +489,128 @@ export function SensorsPerBuoy() {
                   </table>
                 </div>
               </div>
+
+              {location.id !== 'unassigned' && (
+                <div className="flex flex-col gap-3 pt-2">
+                  {addingForLocationId === location.id ? (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="glass bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col md:flex-row items-end gap-4 shadow-xl"
+                    >
+                      {/* Step 1: Elegir Producto */}
+                      <div className="flex-1 space-y-1.5 w-full">
+                        <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1 text-white/50">
+                          1. Elegir Producto
+                        </label>
+                        <select
+                          required
+                          className="w-full bg-[#111827] border border-white/10 rounded-xl px-4 py-2.5 outline-none text-sm text-white cursor-pointer focus:border-cyan-400/50"
+                          value={selectedProductName}
+                          onChange={(e) => {
+                            setSelectedProductName(e.target.value);
+                            setSelectedProductId(''); // Reset serial selection when product changes
+                          }}
+                        >
+                          <option value="" className="bg-[#1e293b]">-- Seleccionar producto... --</option>
+                          {Array.from(new Set(getAvailableSensorsForLocation(location.id).map(p => p.nombre)))
+                            .sort((a, b) => (a as string).localeCompare(b as string))
+                            .map(name => (
+                              <option key={name} value={name} className="bg-[#1e293b]">{name}</option>
+                            ))
+                          }
+                        </select>
+                      </div>
+
+                      {/* Step 2: Serie del Producto */}
+                      <div className="flex-1 space-y-1.5 w-full">
+                        <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1 text-white/50">
+                          2. Serie del Producto
+                        </label>
+                        <select
+                          required
+                          disabled={!selectedProductName}
+                          className="w-full bg-[#111827] border border-white/10 rounded-xl px-4 py-2.5 outline-none text-sm text-white cursor-pointer focus:border-cyan-400/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          value={selectedProductId}
+                          onChange={(e) => setSelectedProductId(e.target.value)}
+                        >
+                          <option value="" className="bg-[#1e293b]">
+                            {selectedProductName ? '-- Seleccionar serie... --' : '-- Primero elija un producto --'}
+                          </option>
+                          {getAvailableSensorsForLocation(location.id)
+                            .filter(p => p.nombre === selectedProductName)
+                            .map(p => {
+                              const sensorLocation = locations.find(l => l.id === p.ubicacionId);
+                              const locationPrefix = sensorLocation ? `Instalado en: ${sensorLocation.centro}` : 'Libre (En Stock)';
+                              return (
+                                <option key={p.id} value={p.id} className="bg-[#1e293b]">
+                                  S/N: {p.serie} ({p.marca} {p.modelo}) - {locationPrefix}
+                                </option>
+                              );
+                            })
+                          }
+                        </select>
+                      </div>
+
+                      {/* Step 3: Profundidad */}
+                      <div className="w-full md:w-32 space-y-1.5">
+                        <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1 text-white/50 font-semibold text-cyan-400">
+                          3. Profundidad
+                        </label>
+                        <select
+                          required
+                          disabled={!selectedProductId}
+                          className="w-full bg-[#111827] border border-cyan-400/20 text-cyan-300 font-bold rounded-xl px-4 py-2.5 outline-none text-sm cursor-pointer focus:border-cyan-400/50 disabled:opacity-50 disabled:border-white/10 disabled:text-white/40 disabled:cursor-not-allowed"
+                          value={selectedDepth}
+                          onChange={(e) => setSelectedDepth(Number(e.target.value))}
+                        >
+                          {[0, 5, 10, 30, 50, 60].map(d => (
+                            <option key={d} value={d} className="bg-[#1e293b]">{d}m</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="flex gap-2 w-full md:w-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAddingForLocationId(null);
+                            setSelectedProductName('');
+                            setSelectedProductId('');
+                            setSelectedDepth(0);
+                          }}
+                          className="flex-1 md:flex-none px-4 py-2.5 bg-white/10 hover:bg-white/15 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-colors font-mono"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isAssigning || !selectedProductId}
+                          onClick={() => handleAssignSensor(location.id)}
+                          className="flex-1 md:flex-none px-4 py-2.5 bg-white hover:bg-cyan-50 text-[#0f172a] text-xs font-bold uppercase tracking-wider rounded-xl transition-colors disabled:opacity-50 font-mono"
+                        >
+                          {isAssigning ? 'Asignando...' : 'Asignar'}
+                        </button>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <div className="flex justify-end pt-1">
+                      <button
+                        onClick={() => {
+                          setAddingForLocationId(location.id);
+                          setSelectedProductName('');
+                          setSelectedProductId('');
+                          setSelectedDepth(0);
+                        }}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 text-white hover:text-cyan-400 text-xs font-bold uppercase tracking-wider rounded-xl transition-all"
+                      >
+                        <Plus size={14} />
+                        <span>Asignar Sensor Existente</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </section>
           ))
         )}
@@ -477,19 +633,34 @@ export function SensorsPerBuoy() {
 
 // Reuse/Copy ProductModal logic for consistency
 function ProductModal({ onClose, onSave, editingProduct, locations, products = [] }: { onClose: () => void; onSave: () => void, editingProduct: Product | null, locations: Location[], products?: Product[] }) {
-  const [formData, setFormData] = useState<Partial<Product>>(
-    editingProduct || {
+  const [formData, setFormData] = useState<Partial<Product>>(() => {
+    if (editingProduct) {
+      let mappedHealth = editingProduct.estadoSalud;
+      if (!mappedHealth) {
+        if (editingProduct.estado as any === 'Malo') {
+          mappedHealth = ProductHealth.DEFECTUOSO;
+        } else {
+          mappedHealth = ProductHealth.BUENO;
+        }
+      }
+
+      return {
+        ...editingProduct,
+        estadoSalud: mappedHealth
+      };
+    }
+    return {
       nombre: '',
       marca: '',
       modelo: '',
       serie: '',
-      estado: ProductStatus.BUENO,
+      estadoSalud: ProductHealth.BUENO,
       profundidad: undefined,
       ubicacionId: '',
       fechaCalibracion: '',
       documentoCalibracionUrl: ''
-    }
-  );
+    };
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Autocomplete options for predictive text from database only
@@ -590,23 +761,38 @@ function ProductModal({ onClose, onSave, editingProduct, locations, products = [
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Estado</label>
+              <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1 text-white/50">Ubicación (Boya / Cliente)</label>
               <select
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base"
-                value={formData.estado}
-                onChange={(e) => setFormData({ ...formData, estado: e.target.value as ProductStatus })}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base text-white font-medium cursor-pointer focus:border-cyan-400/50"
+                value={formData.ubicacionId || ''}
+                onChange={(e) => setFormData({ ...formData, ubicacionId: e.target.value })}
               >
-                <option value={ProductStatus.BUENO} className="bg-[#1e293b]">Bueno</option>
-                <option value={ProductStatus.MALO} className="bg-[#1e293b]">Malo</option>
-                <option value={ProductStatus.INSTALADO} className="bg-[#1e293b]">Instalado</option>
+                <option value="" className="bg-[#1e293b]">-- Sin Ubicación (En Stock) --</option>
+                {locations.map(l => (
+                  <option key={l.id} value={l.id} className="bg-[#1e293b]">{l.centro} ({l.region}) - {l.nombreCliente}</option>
+                ))}
               </select>
             </div>
-            {formData.estado === ProductStatus.INSTALADO ? (
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1 text-white/50">Estado de Salud</label>
+              <select
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base text-white font-medium cursor-pointer focus:border-cyan-400/50"
+                value={formData.estadoSalud || ProductHealth.BUENO}
+                onChange={(e) => setFormData({ ...formData, estadoSalud: e.target.value as ProductHealth })}
+              >
+                <option value={ProductHealth.BUENO} className="bg-[#1e293b]">Bueno</option>
+                <option value={ProductHealth.DEFECTUOSO} className="bg-[#1e293b]">Defectuoso</option>
+              </select>
+            </div>
+          </div>
+
+          {formData.ubicacionId && (
+            <div className="grid grid-cols-1 gap-6">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Profundidad (m)</label>
+                <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1 text-white/50">Profundidad de Instalación (m)</label>
                 <select
                   required
-                  className="w-full bg-white/5 border border-white/20 text-cyan-300 font-bold rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base"
+                  className="w-full bg-white/5 border border-white/20 text-cyan-300 font-bold rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base cursor-pointer focus:border-cyan-400/50"
                   value={formData.profundidad}
                   onChange={(e) => setFormData({ ...formData, profundidad: Number(e.target.value) })}
                 >
@@ -616,37 +802,6 @@ function ProductModal({ onClose, onSave, editingProduct, locations, products = [
                   ))}
                 </select>
               </div>
-            ) : (
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Boya Asignada</label>
-                <select
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base"
-                  value={formData.ubicacionId}
-                  onChange={(e) => setFormData({ ...formData, ubicacionId: e.target.value })}
-                >
-                  <option value="" className="bg-[#1e293b]">Sin asignar (Libre)</option>
-                  {locations.map(l => (
-                    <option key={l.id} value={l.id} className="bg-[#1e293b]">{l.centro}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-
-          {formData.estado === ProductStatus.INSTALADO && (
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Boya de Instalación</label>
-              <select
-                required
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base"
-                value={formData.ubicacionId}
-                onChange={(e) => setFormData({ ...formData, ubicacionId: e.target.value })}
-              >
-                <option value="" className="bg-[#1e293b]">Seleccionar Boya...</option>
-                {locations.map(l => (
-                  <option key={l.id} value={l.id} className="bg-[#1e293b]">{l.centro}</option>
-                ))}
-              </select>
             </div>
           )}
 

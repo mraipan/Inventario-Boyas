@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/dbService';
-import { Product, Location, Movement, ProductStatus } from '../types';
+import { Product, Location, Movement, ProductHealth } from '../types';
 import { Package, MapPin, Activity, AlertCircle, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -24,7 +24,7 @@ export function Dashboard({ onNavigate }: { onNavigate: (view: any) => void }) {
 
       setStats({
         totalProducts: products?.length || 0,
-        badCondition: products?.filter(p => p.estado === ProductStatus.MALO).length || 0,
+        badCondition: products?.filter(p => p.estadoSalud === ProductHealth.DEFECTUOSO || (p.estado as any) === 'Malo').length || 0,
         totalLocations: locations?.length || 0,
         recentMovements: (movements || []).slice(0, 5)
       });
