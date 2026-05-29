@@ -48,6 +48,21 @@
         "userEmail": { "type": "string" }
       },
       "required": ["productId", "type", "timestamp", "userEmail"]
+    },
+    "AppUser": {
+      "title": "Usuario de Aplicación",
+      "description": "Un usuario registrado en el sistema con su información básica.",
+      "type": "object",
+      "properties": {
+        "nombre": { "type": "string", "description": "Nombre completo del usuario" },
+        "correo": { "type": "string", "description": "Correo electrónico del usuario" },
+        "telefono": { "type": "string", "description": "Número telefónico de contacto" },
+        "contrasena": { "type": "string", "description": "Contraseña de acceso del usuario" },
+        "cargo": { "type": "string", "enum": ["Administrador", "Soporte", "Técnico"], "description": "Cargo o rol del usuario" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["nombre", "correo", "telefono", "cargo", "createdAt", "createdBy"]
     }
   },
   "firestore": {
@@ -62,6 +77,10 @@
     "movements/{movementId}": {
       "schema": "Movement",
       "description": "Registro histórico de movimientos."
+    },
+    "users/{userId}": {
+      "schema": "AppUser",
+      "description": "Lista de usuarios de la aplicación."
     }
   }
 }

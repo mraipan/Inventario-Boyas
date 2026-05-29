@@ -5,7 +5,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, User, signInAnonymously } from 'firebase/auth';
-import { auth, login, logout, loginWithEmail, registerWithEmail } from './firebase';
+import { auth, login, logout, loginWithEmail, registerWithEmail, db } from './firebase';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { AppUser } from './types';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
 import { Inventory } from './components/Inventory';
@@ -13,13 +15,15 @@ import { LocationManager } from './components/LocationManager';
 import { Reports } from './components/Reports';
 import { SensorsPerBuoy } from './components/SensorsPerBuoy';
 import { Maintenance } from './components/Maintenance';
-import { Package, MapPin, BarChart3, History, LogIn, LogOut, ShieldCheck, UserPlus, Menu, X, Cpu, Wrench } from 'lucide-react';
+import { UserManager } from './components/UserManager';
+import { Package, MapPin, BarChart3, History, LogIn, LogOut, ShieldCheck, UserPlus, Menu, X, Cpu, Wrench, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-type View = 'dashboard' | 'inventory' | 'locations' | 'reports' | 'sensors' | 'maintenance';
+type View = 'dashboard' | 'inventory' | 'locations' | 'reports' | 'sensors' | 'maintenance' | 'users';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [username, setUsername] = useState('');
@@ -29,8 +33,58 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setLoading(true);
+      if (currentUser) {
+        setUser(currentUser);
+        // Intentar obtener el perfil del usuario utilizando su email
+        try {
+          const emailLower = currentUser.email?.toLowerCase().trim();
+          if (emailLower) {
+            const q = query(collection(db, 'users'), where('correo', '==', emailLower));
+            const snapshot = await getDocs(q);
+            if (!snapshot.empty) {
+              const docData = snapshot.docs[0].data();
+              setProfile({
+                id: snapshot.docs[0].id,
+                ...docData
+              } as AppUser);
+            } else {
+              // Si no existe perfil en el listado, asumimos perfil de administrador por defecto
+              setProfile({
+                nombre: currentUser.displayName || currentUser.email || 'Administrador',
+                correo: currentUser.email || '',
+                telefono: '',
+                cargo: 'Administrador',
+                createdAt: null,
+                createdBy: ''
+              });
+            }
+          } else {
+            // Ver si hay un perfil guardado localmente (para inicio de sesión anónimo con credenciales personalizadas)
+            const savedProfileStr = localStorage.getItem('custom_user_profile');
+            if (savedProfileStr) {
+              setProfile(JSON.parse(savedProfileStr));
+            } else {
+              setProfile(null);
+            }
+          }
+        } catch (err) {
+          console.error("Error al cargar perfil usuario:", err);
+          setProfile({
+            nombre: currentUser.displayName || currentUser.email || 'Usuario',
+            correo: currentUser.email || '',
+            telefono: '',
+            cargo: 'Administrador',
+            createdAt: null,
+            createdBy: ''
+          });
+        }
+      } else {
+        setUser(null);
+        setProfile(null);
+        localStorage.removeItem('custom_user_profile');
+      }
       setLoading(false);
     });
     return unsubscribe;
@@ -39,9 +93,11 @@ export default function App() {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
-    
-    // Mapeo de usuario simple a email para compatibilidad con Firebase Auth
-    const email = username.toLowerCase().includes('@') ? username.toLowerCase() : `${username.toLowerCase()}@demo.com`;
+    setLoading(true);
+
+    const emailTrim = username.toLowerCase().trim();
+    // Mapeo por compatibilidad con cuentas antiguas de demo que no tenían formato de email
+    const email = emailTrim.includes('@') ? emailTrim : `${emailTrim}@demo.com`;
 
     try {
       if (authMode === 'login') {
@@ -53,19 +109,84 @@ export default function App() {
       }
     } catch (error: any) {
       console.error("Auth Error:", error.code, error.message);
+      
+      // Fallback: verificar si el usuario existe en nuestra colección personalizada 'users' en Firestore
+      if (authMode === 'login') {
+        try {
+          const emailLower = email.toLowerCase().trim();
+          let userData: any = null;
+          let userId: string = '';
+
+          // 1. Intentar GET directo del documento de usuario (públicamente permitido por reglas: allow get: if true)
+          const userDocRef = doc(db, 'users', emailLower);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            userData = userDoc.data();
+            userId = userDoc.id;
+          } else {
+            // 2. Si no, por compatibilidad con usuarios antiguos creados con IDs aleatorios, intentamos búsqueda anónima
+            try {
+              await signInAnonymously(auth);
+              const q = query(collection(db, 'users'), where('correo', '==', emailLower));
+              const snapshot = await getDocs(q);
+              const matched = snapshot.docs.find(d => d.data().correo?.toLowerCase() === emailLower);
+              if (matched) {
+                userData = matched.data();
+                userId = matched.id;
+              }
+              if (!userData) {
+                await auth.signOut();
+              }
+            } catch (anonErr) {
+              console.warn("Búsqueda anónima omitida o fallida:", anonErr);
+            }
+          }
+
+          if (userData && userData.contrasena === password) {
+            // ¡Credenciales correctas encontradas en base de datos!
+            // Registramos de forma transparente este usuario en Firebase Auth en tiempo real
+            console.log("Credenciales de DB correctas. Auto-registrando en Firebase Auth...");
+            try {
+              await registerWithEmail(emailLower, password);
+              // Al crearse la cuenta mediante registerWithEmail, automáticamente se inicia sesión principal
+              setLoading(false);
+              return;
+            } catch (regError: any) {
+              if (regError.code === 'auth/email-already-in-use') {
+                // Si ya está registrado en Firebase Auth, pero no correspondía la contraseña
+                setLoginError('Contraseña incorrecta.');
+                setLoading(false);
+                return;
+              } else {
+                throw regError;
+              }
+            }
+          } else if (userData) {
+            // Usuario existe en la DB pero la contraseña es incorrecta
+            setLoginError('Contraseña incorrecta.');
+            setLoading(false);
+            return;
+          }
+        } catch (dbErr) {
+          console.error("Error al verificar credenciales en base de datos:", dbErr);
+        }
+      }
+
       if (error.code === 'auth/user-not-found') {
-        setLoginError('Usuario no encontrado. Asegúrate de REGISTRARLO primero en la pestaña de al lado.');
-      } else if (error.code === 'auth/wrong-password') {
+        setLoginError('Usuario no registrado o contraseña incorrecta.');
+      } else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
         setLoginError('Contraseña incorrecta.');
       } else if (error.code === 'auth/email-already-in-use') {
         setLoginError('Este usuario ya existe. Intenta entrar directamente.');
       } else if (error.code === 'auth/operation-not-allowed') {
-        setLoginError('ACCESO DESACTIVADO: Debes habilitar "Email/Password" en tu Consola de Firebase > Authentication > Sign-in method.');
+        setLoginError('ACCESO DESACTIVADO: Debes habilitar "Email/Password" en tu Consola de Firebase.');
       } else if (error.code === 'auth/weak-password') {
         setLoginError('La contraseña es muy corta (mínimo 6 caracteres).');
       } else {
         setLoginError('Error: ' + (error.message || 'Intente nuevamente'));
       }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -125,12 +246,12 @@ export default function App() {
 
             <form onSubmit={handleAuth} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-mono uppercase opacity-40 ml-1">Usuario</label>
+                <label className="text-[10px] font-mono uppercase opacity-40 ml-1">Email / Correo Electrónico</label>
                 <input 
-                  type="text" 
+                  type="email" 
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Ej: marco"
+                  placeholder="Ej: usuario@empresa.com"
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-white/40"
                   required
                 />
@@ -250,27 +371,38 @@ export default function App() {
               label="Sensores por Boya"
             />
             <NavButton 
-              active={currentView === 'maintenance'} 
-              onClick={() => { setCurrentView('maintenance'); setIsSidebarOpen(false); }}
-              icon={<Wrench size={18} />}
-              label="Mantención"
-            />
-            <NavButton 
               active={currentView === 'reports'} 
               onClick={() => { setCurrentView('reports'); setIsSidebarOpen(false); }}
               icon={<History size={18} />}
               label="Historial"
             />
+            <NavButton 
+              active={currentView === 'users'} 
+              onClick={() => { setCurrentView('users'); setIsSidebarOpen(false); }}
+              icon={<Users size={18} />}
+              label="Usuarios"
+            />
           </nav>
 
           <div className="p-6 bg-white/5 mt-auto border-t border-white/10 mb-safe-bottom">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-white/20 text-white flex items-center justify-center text-sm font-bold border border-white/20">
-                {user.email?.[0].toUpperCase()}
+              <div className="w-10 h-10 rounded-xl bg-white/20 text-white flex items-center justify-center text-sm font-bold border border-white/20 uppercase shrink-0">
+                {(profile?.nombre?.[0] || profile?.correo?.[0] || user?.email?.[0] || 'U').toUpperCase()}
               </div>
               <div className="overflow-hidden">
-                <p className="text-xs font-semibold truncate">{user.displayName || user.email}</p>
-                <p className="text-[10px] font-mono opacity-40 truncate">{user.email}</p>
+                <p className="text-xs font-semibold truncate" title={profile?.nombre || user?.displayName || user?.email || 'Usuario'}>
+                  {profile?.nombre || user?.displayName || user?.email || 'Usuario'}
+                </p>
+                <div className="flex flex-col gap-0.5">
+                  <p className="text-[10px] font-mono opacity-40 truncate" title={profile?.correo || user?.email || undefined}>
+                    {profile?.correo || user?.email}
+                  </p>
+                  {profile?.cargo && (
+                    <span className="text-[9px] font-mono font-bold text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded-md w-max mt-0.5 border border-cyan-400/20">
+                      {profile.cargo}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <button
@@ -301,6 +433,7 @@ export default function App() {
                 {currentView === 'sensors' && <SensorsPerBuoy />}
                 {currentView === 'maintenance' && <Maintenance />}
                 {currentView === 'reports' && <Reports />}
+                {currentView === 'users' && <UserManager />}
               </div>
             </motion.div>
           </AnimatePresence>

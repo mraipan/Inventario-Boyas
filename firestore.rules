@@ -13,7 +13,7 @@ service cloud.firestore {
     }
 
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\- .#:]+$');
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\- .#:@]+$');
     }
 
     function incoming() {
@@ -70,6 +70,7 @@ service cloud.firestore {
         && data.region is string && data.region.size() <= 100
         && data.ciudad is string && data.ciudad.size() <= 100
         && data.centro is string && data.centro.size() <= 100
+        && (data.get('acs', '') is string && data.get('acs', '').size() <= 100)
         && data.createdAt is timestamp
         && data.createdBy is string && data.createdBy.size() <= 128;
     }
@@ -89,7 +90,7 @@ service cloud.firestore {
         && incoming().createdBy == existing().createdBy
         && (incoming().get('updatedAt', null) == request.time)
         && (
-          incoming().diff(existing()).affectedKeys().hasOnly(['nombreCliente', 'region', 'ciudad', 'centro', 'updatedAt'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['nombreCliente', 'region', 'ciudad', 'centro', 'acs', 'updatedAt'])
         );
       
       allow delete: if isSignedIn();
@@ -115,6 +116,39 @@ service cloud.firestore {
         && incoming().userEmail == request.auth.token.email;
       
       allow update, delete: if false;
+    }
+
+    // --- AppUser Logic ---
+    function isValidAppUser(data) {
+      return data.nombre is string && data.nombre.size() <= 200
+        && data.correo is string && data.correo.size() <= 200
+        && data.telefono is string && data.telefono.size() <= 100
+        && data.cargo is string && (data.cargo == 'Administrador' || data.cargo == 'Soporte' || data.cargo == 'Técnico')
+        && (data.get('contrasena', '') is string && data.get('contrasena', '').size() <= 200)
+        && data.createdAt is timestamp
+        && data.createdBy is string && data.createdBy.size() <= 128;
+    }
+
+    match /users/{userId} {
+      allow list: if isSignedIn();
+      allow get: if true;
+      
+      allow create: if isSignedIn()
+        && isValidId(userId)
+        && isValidAppUser(incoming())
+        && incoming().createdAt == request.time
+        && incoming().createdBy == request.auth.uid;
+      
+      allow update: if isSignedIn()
+        && isValidAppUser(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().createdBy == existing().createdBy
+        && (incoming().get('updatedAt', null) == request.time)
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['nombre', 'correo', 'telefono', 'contrasena', 'cargo', 'updatedAt'])
+        );
+      
+      allow delete: if isSignedIn();
     }
 
     // --- Test Connection ---

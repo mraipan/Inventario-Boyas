@@ -7,6 +7,7 @@ interface CalibrationDocumentFieldProps {
   onChange: (value: string) => void;
   productName: string;
   serie: string;
+  disabled?: boolean;
 }
 
 export function CalibrationDocumentField({
@@ -14,6 +15,7 @@ export function CalibrationDocumentField({
   onChange,
   productName,
   serie,
+  disabled = false,
 }: CalibrationDocumentFieldProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,26 +131,30 @@ export function CalibrationDocumentField({
               <Eye size={14} className="text-cyan-400" />
               <span>Ver</span>
             </button>
-            <button
-              type="button"
-              onClick={handleClear}
-              className="p-2 hover:bg-red-500/20 text-white/60 hover:text-red-400 rounded-lg transition-colors"
-              title="Quitar Documento"
-            >
-              <X size={15} />
-            </button>
+            {!disabled && (
+              <button
+                type="button"
+                onClick={handleClear}
+                className="p-2 hover:bg-red-500/20 text-white/60 hover:text-red-400 rounded-lg transition-colors"
+                title="Quitar Documento"
+              >
+                <X size={15} />
+              </button>
+            )}
           </div>
         </div>
       ) : (
         <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-          className={`relative border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2 bg-white/2
-            ${isDragging 
-              ? 'border-cyan-400 bg-cyan-500/5 scale-[0.99] shadow-inner' 
-              : 'border-white/15 hover:border-white/30 hover:bg-white/5'
+          onDragOver={disabled ? undefined : handleDragOver}
+          onDragLeave={disabled ? undefined : handleDragLeave}
+          onDrop={disabled ? undefined : handleDrop}
+          onClick={disabled ? undefined : () => fileInputRef.current?.click()}
+          className={`relative border-2 border-dashed rounded-xl p-5 text-center transition-all flex flex-col items-center justify-center gap-2 bg-white/2
+            ${disabled 
+              ? 'border-white/5 opacity-50 cursor-not-allowed'
+              : isDragging 
+                ? 'border-cyan-400 bg-cyan-500/5 scale-[0.99] shadow-inner cursor-pointer' 
+                : 'border-white/15 hover:border-white/30 hover:bg-white/5 cursor-pointer'
             }
           `}
         >
@@ -158,16 +164,19 @@ export function CalibrationDocumentField({
             onChange={handleFileChange}
             accept=".pdf, .jpg, .jpeg, image/jpeg, image/jpg, application/pdf"
             className="hidden"
+            disabled={disabled}
           />
           <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white/40">
             <Upload size={18} />
           </div>
           <div className="text-xs font-semibold text-white">
-            Haz clic o arrastra un documento aquí
+            {disabled ? 'Sin documento de calibración' : 'Haz clic o arrastra un documento aquí'}
           </div>
-          <div className="text-[10px] text-white/40 font-mono tracking-tight uppercase">
-            Formatos: PDF o JPG • Máx: 100 KB
-          </div>
+          {!disabled && (
+            <div className="text-[10px] text-white/40 font-mono tracking-tight uppercase">
+              Formatos: PDF o JPG • Máx: 100 KB
+            </div>
+          )}
         </div>
       )}
 

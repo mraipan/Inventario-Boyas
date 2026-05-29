@@ -13,8 +13,8 @@ import {
   addDoc,
   deleteField
 } from 'firebase/firestore';
-import { db, auth } from '../firebase';
-import { OperationType, FirestoreErrorInfo, Product, Location, Movement, MovementType } from '../types';
+import { db, auth, registerAuthUserWithoutLoggingOut } from '../firebase';
+import { OperationType, FirestoreErrorInfo, Product, Location, Movement, MovementType, AppUser } from '../types';
 
 function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const errInfo: FirestoreErrorInfo = {
@@ -235,6 +235,71 @@ export const dbService = {
       return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Movement));
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, path);
+    }
+  },
+
+  // Users
+  async getUsers() {
+    const path = 'users';
+    try {
+      const q = query(collection(db, path), orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppUser));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, path);
+    }
+  },
+
+  async addUser(appUser: Omit<AppUser, 'createdAt' | 'createdBy' | 'id'>) {
+    const emailClean = appUser.correo.trim().toLowerCase();
+    const path = `users/${emailClean}`;
+    try {
+      if (!auth.currentUser) throw new Error("Usuario no autenticado");
+      const { id: _, createdAt: __, createdBy: ___, ...dataToAdd } = appUser as any;
+      const payload = {
+        ...dataToAdd,
+        createdAt: serverTimestamp(),
+        createdBy: auth.currentUser.uid
+      };
+      // Use the email as the document ID
+      await setDoc(doc(db, 'users', emailClean), payload);
+      // Pre-register user in Firebase Auth without logout
+      if (appUser.contrasena) {
+        await registerAuthUserWithoutLoggingOut(emailClean, appUser.contrasena);
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  async updateUser(id: string, updates: Partial<AppUser>) {
+    const path = `users/${id}`;
+    try {
+      if (!auth.currentUser) throw new Error("Usuario no autenticado");
+      const { id: _, createdAt: __, createdBy: ___, ...dataToUpdate } = updates as any;
+      const payload = {
+        ...dataToUpdate,
+        updatedAt: serverTimestamp()
+      };
+      // Update doc. If the id is the email, this works perfectly.
+      await updateDoc(doc(db, 'users', id), payload);
+      
+      // If a password was changed, we can pre-register them again in Auth (or they are already registered and can be updated when they log in)
+      if (updates.contrasena) {
+        const emailClean = (updates.correo || id).trim().toLowerCase();
+        await registerAuthUserWithoutLoggingOut(emailClean, updates.contrasena);
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  async deleteUser(id: string) {
+    const path = `users/${id}`;
+    try {
+      await deleteDoc(doc(db, 'users', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
     }
   },
 

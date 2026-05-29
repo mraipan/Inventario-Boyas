@@ -15,6 +15,7 @@ export interface Location {
   region: string;
   ciudad: string;
   centro: string;
+  acs?: string;
   createdAt: any;
   createdBy: string;
 }
@@ -44,6 +45,17 @@ export interface Movement {
   timestamp: any;
   description: string;
   userEmail: string;
+}
+
+export interface AppUser {
+  id?: string;
+  nombre: string;
+  correo: string;
+  telefono: string;
+  contrasena?: string;
+  cargo: 'Administrador' | 'Soporte' | 'Técnico';
+  createdAt: any;
+  createdBy: string;
 }
 
 export enum OperationType {

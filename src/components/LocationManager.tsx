@@ -70,11 +70,17 @@ export function LocationManager() {
                 </div>
               </div>
               
-              <div className="relative z-10">
+              <div className="relative z-10 flex-1 flex flex-col">
                 <h3 className="text-xl font-bold tracking-tight mb-1">{loc.centro}</h3>
-                <p className="text-sm opacity-50 font-medium mb-6">{loc.nombreCliente}</p>
+                <p className="text-sm opacity-50 font-medium mb-3">{loc.nombreCliente}</p>
                 
-                <div className="pt-4 border-t border-white/5 flex gap-4 items-center text-[10px] font-mono uppercase tracking-widest opacity-40">
+                {loc.acs && (
+                  <div className="self-start inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[11px] font-mono mb-4">
+                    <span className="font-semibold opacity-60">ACS:</span> {loc.acs}
+                  </div>
+                )}
+                
+                <div className="mt-auto pt-4 border-t border-white/5 flex gap-4 items-center text-[10px] font-mono uppercase tracking-widest opacity-40">
                   <span className="flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
                     {loc.region}
@@ -96,6 +102,7 @@ export function LocationManager() {
             onClose={() => setIsModalOpen(false)} 
             onSave={fetchData} 
             editingLocation={editingLocation}
+            existingLocations={locations}
           />
         )}
       </AnimatePresence>
@@ -103,15 +110,15 @@ export function LocationManager() {
   );
 }
 
-function LocationModal({ onClose, onSave, editingLocation }: { onClose: () => void; onSave: () => void, editingLocation: Location | null }) {
-  const [formData, setFormData] = useState<Partial<Location>>(
-    editingLocation || {
-      nombreCliente: '',
-      region: '',
-      ciudad: '',
-      centro: ''
-    }
-  );
+function LocationModal({ onClose, onSave, editingLocation, existingLocations }: { onClose: () => void; onSave: () => void, editingLocation: Location | null, existingLocations: Location[] }) {
+  const [formData, setFormData] = useState<Partial<Location>>({
+    nombreCliente: '',
+    region: '',
+    ciudad: '',
+    centro: '',
+    acs: '',
+    ...editingLocation
+  });
 
   const selectedRegionData = CHILE_REGIONS.find(r => r.name === formData.region);
   const cities = selectedRegionData ? selectedRegionData.cities : [];
@@ -120,6 +127,26 @@ function LocationModal({ onClose, onSave, editingLocation }: { onClose: () => vo
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    
+    // Validate uniqueness of ACS field
+    if (formData.acs && formData.acs.trim() !== '') {
+      const cleanAcs = formData.acs.trim().toLowerCase();
+      const duplicate = existingLocations.find(l => 
+        l.id !== editingLocation?.id && 
+        l.acs?.trim().toLowerCase() === cleanAcs
+      );
+
+      if (duplicate) {
+        alert(`El código ACS "${formData.acs.trim()}" ya está registrado en la ubicación "${duplicate.centro}". Las ACS no se pueden repetir.`);
+        setIsSubmitting(false);
+        return;
+      }
+    } else {
+      alert("El campo ACS es requerido y no puede estar vacío.");
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       if (editingLocation) {
         await dbService.updateLocation(editingLocation.id!, formData);
@@ -199,6 +226,17 @@ function LocationModal({ onClose, onSave, editingLocation }: { onClose: () => vo
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none text-sm lg:text-base"
               value={formData.centro}
               onChange={(e) => setFormData({ ...formData, centro: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1 text-cyan-400 font-semibold">Código ACS</label>
+            <input
+              required
+              type="text"
+              placeholder="Ej: ACS contexto y números"
+              className="w-full bg-white/5 border border-[#22d3ee]/20 focus:border-[#22d3ee]/50 rounded-xl px-4 py-3 outline-none text-sm lg:text-base text-[#22d3ee] active:text-white font-mono uppercase placeholder-white/30"
+              value={formData.acs}
+              onChange={(e) => setFormData({ ...formData, acs: e.target.value.toUpperCase() })}
             />
           </div>
 

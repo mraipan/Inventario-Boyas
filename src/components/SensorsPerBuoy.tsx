@@ -468,13 +468,6 @@ export function SensorsPerBuoy() {
                               >
                                 <Pencil size={14} />
                               </button>
-                              <button 
-                                onClick={() => handleDelete(p.id!, p.nombre)}
-                                className="p-2 hover:bg-red-500/20 rounded-lg text-white/40 hover:text-red-400 transition-colors"
-                                title="Eliminar"
-                              >
-                                <Trash2 size={14} />
-                              </button>
                             </div>
                             {/* Mobile actions always visible or different */}
                             <div className="lg:hidden flex justify-end gap-2">
@@ -713,8 +706,9 @@ function ProductModal({ onClose, onSave, editingProduct, locations, products = [
               <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Nombre del Sensor</label>
               <AutocompleteInput
                 required
+                disabled={!!editingProduct}
                 placeholder="Ej: ADCP, Oxígeno..."
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none text-white text-sm lg:text-base"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none text-white text-sm lg:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                 value={formData.nombre || ''}
                 onChange={(val) => setFormData({ ...formData, nombre: val })}
                 suggestions={suggestedNombres}
@@ -739,8 +733,9 @@ function ProductModal({ onClose, onSave, editingProduct, locations, products = [
               <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Marca</label>
               <AutocompleteInput
                 required
+                disabled={!!editingProduct}
                 placeholder="Fabricante"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none text-white text-sm lg:text-base"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none text-white text-sm lg:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                 value={formData.marca || ''}
                 onChange={(val) => setFormData({ ...formData, marca: val })}
                 suggestions={suggestedMarcas}
@@ -750,8 +745,9 @@ function ProductModal({ onClose, onSave, editingProduct, locations, products = [
               <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Modelo</label>
               <AutocompleteInput
                 required
+                disabled={!!editingProduct}
                 placeholder="Modelo específico"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none text-white text-sm lg:text-base"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none text-white text-sm lg:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                 value={formData.modelo || ''}
                 onChange={(val) => setFormData({ ...formData, modelo: val })}
                 suggestions={suggestedModelos}
@@ -768,7 +764,10 @@ function ProductModal({ onClose, onSave, editingProduct, locations, products = [
                 onChange={(e) => setFormData({ ...formData, ubicacionId: e.target.value })}
               >
                 <option value="" className="bg-[#1e293b]">-- Sin Ubicación (En Stock) --</option>
-                {locations.map(l => (
+                {(editingProduct
+                  ? locations.filter(l => l.centro.toLowerCase().includes('bodega') || l.id === editingProduct.ubicacionId)
+                  : locations
+                ).map(l => (
                   <option key={l.id} value={l.id} className="bg-[#1e293b]">{l.centro} ({l.region}) - {l.nombreCliente}</option>
                 ))}
               </select>
@@ -776,7 +775,8 @@ function ProductModal({ onClose, onSave, editingProduct, locations, products = [
             <div className="space-y-1.5">
               <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1 text-white/50">Estado de Salud</label>
               <select
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base text-white font-medium cursor-pointer focus:border-cyan-400/50"
+                disabled={!!editingProduct}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base text-white font-medium cursor-pointer focus:border-cyan-400/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 value={formData.estadoSalud || ProductHealth.BUENO}
                 onChange={(e) => setFormData({ ...formData, estadoSalud: e.target.value as ProductHealth })}
               >
@@ -792,7 +792,8 @@ function ProductModal({ onClose, onSave, editingProduct, locations, products = [
                 <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1 text-white/50">Profundidad de Instalación (m)</label>
                 <select
                   required
-                  className="w-full bg-white/5 border border-white/20 text-cyan-300 font-bold rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base cursor-pointer focus:border-cyan-400/50"
+                  disabled={!!editingProduct}
+                  className="w-full bg-white/5 border border-white/20 text-cyan-300 font-bold rounded-xl px-4 py-3 outline-none appearance-none text-sm lg:text-base cursor-pointer focus:border-cyan-400/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:text-white/50"
                   value={formData.profundidad}
                   onChange={(e) => setFormData({ ...formData, profundidad: Number(e.target.value) })}
                 >
@@ -809,13 +810,15 @@ function ProductModal({ onClose, onSave, editingProduct, locations, products = [
             <div className="space-y-1.5">
               <label className="text-[10px] font-mono uppercase opacity-50 tracking-widest ml-1">Fecha Calibración</label>
               <input
+                disabled={!!editingProduct}
                 type="date"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none [color-scheme:dark] text-sm lg:text-base"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none [color-scheme:dark] text-sm lg:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                 value={formData.fechaCalibracion}
                 onChange={(e) => setFormData({ ...formData, fechaCalibracion: e.target.value })}
               />
             </div>
             <CalibrationDocumentField
+              disabled={!!editingProduct}
               value={formData.documentoCalibracionUrl || ''}
               onChange={(val) => setFormData({ ...formData, documentoCalibracionUrl: val })}
               productName={formData.nombre || ''}
