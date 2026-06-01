@@ -9,7 +9,9 @@ export function Dashboard({ onNavigate }: { onNavigate: (view: any) => void }) {
     totalProducts: 0,
     badCondition: 0,
     totalLocations: 0,
-    recentMovements: [] as Movement[]
+    recentMovements: [] as Movement[],
+    productsList: [] as Product[],
+    locationsList: [] as Location[]
   });
   const [loading, setLoading] = useState(true);
 
@@ -26,12 +28,28 @@ export function Dashboard({ onNavigate }: { onNavigate: (view: any) => void }) {
         totalProducts: products?.length || 0,
         badCondition: products?.filter(p => p.estadoSalud === ProductHealth.DEFECTUOSO || (p.estado as any) === 'Malo').length || 0,
         totalLocations: locations?.length || 0,
-        recentMovements: (movements || []).slice(0, 5)
+        recentMovements: (movements || []).slice(0, 5),
+        productsList: products || [],
+        locationsList: locations || []
       });
       setLoading(false);
     };
     fetchStats();
   }, []);
+
+  const getMovementLocation = (m: Movement) => {
+    if (m.ubicacionName) {
+      return m.ubicacionName;
+    }
+    const prod = stats.productsList.find(p => p.id === m.productId || p.serie === m.productId);
+    if (prod && prod.ubicacionId) {
+      const loc = stats.locationsList.find(l => l.id === prod.ubicacionId);
+      if (loc) {
+        return `${loc.centro} (${loc.nombreCliente})`;
+      }
+    }
+    return null;
+  };
 
   if (loading) return <div className="py-12 text-center font-mono opacity-50 uppercase text-xs">Calculando métricas...</div>;
 
@@ -95,6 +113,9 @@ export function Dashboard({ onNavigate }: { onNavigate: (view: any) => void }) {
                     <div>
                       <p className="text-sm font-semibold">{m.productName}</p>
                       <p className="text-[10px] opacity-50 uppercase font-mono tracking-tight">{m.description}</p>
+                      {getMovementLocation(m) && (
+                        <p className="text-[9px] font-mono text-cyan-400 mt-0.5">Sede: {getMovementLocation(m)}</p>
+                      )}
                     </div>
                   </div>
                   <div className="text-right">

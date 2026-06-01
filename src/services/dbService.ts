@@ -68,17 +68,21 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 }
 
 // Movements Logger
-async function logMovement(productId: string, productName: string, type: MovementType, description: string) {
+async function logMovement(productId: string, productName: string, type: MovementType, description: string, ubicacionName?: string) {
   const path = 'movements';
   try {
-    await addDoc(collection(db, path), {
+    const payload: any = {
       productId,
       productName,
       type,
       timestamp: serverTimestamp(),
       description,
       userEmail: getSessionEmail()
-    });
+    };
+    if (ubicacionName) {
+      payload.ubicacionName = ubicacionName;
+    }
+    await addDoc(collection(db, path), payload);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -120,7 +124,21 @@ export const dbService = {
       });
 
       await setDoc(doc(db, 'products', product.serie), newProduct);
-      await logMovement(product.serie, product.nombre, MovementType.CREATE, `Producto creado: ${product.nombre}`);
+
+      let ubicacionName = '';
+      if (product.ubicacionId) {
+        try {
+          const locSnap = await getDoc(doc(db, 'locations', product.ubicacionId));
+          if (locSnap.exists()) {
+            const locData = locSnap.data();
+            ubicacionName = `${locData.centro || ''} (${locData.nombreCliente || ''})`.trim();
+          }
+        } catch (e) {
+          console.warn("Could not fetch location for logging creation:", e);
+        }
+      }
+
+      await logMovement(product.serie, product.nombre, MovementType.CREATE, `Producto creado: ${product.nombre}`, ubicacionName);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, path);
     }
@@ -151,7 +169,22 @@ export const dbService = {
       });
 
       await updateDoc(productRef, finalUpdates);
-      await logMovement(id, updates.nombre || oldData?.nombre, MovementType.UPDATE, `Producto actualizado: ${updates.nombre || oldData?.nombre}`);
+
+      let ubicacionName = '';
+      const finalUbicacionId = finalUpdates.ubicacionId || oldData?.ubicacionId;
+      if (finalUbicacionId) {
+        try {
+          const locSnap = await getDoc(doc(db, 'locations', finalUbicacionId));
+          if (locSnap.exists()) {
+            const locData = locSnap.data();
+            ubicacionName = `${locData.centro || ''} (${locData.nombreCliente || ''})`.trim();
+          }
+        } catch (e) {
+          console.warn("Could not fetch location for logging update:", e);
+        }
+      }
+
+      await logMovement(id, updates.nombre || oldData?.nombre, MovementType.UPDATE, `Producto actualizado: ${updates.nombre || oldData?.nombre}`, ubicacionName);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, path);
     }
@@ -160,8 +193,25 @@ export const dbService = {
   async deleteProduct(id: string, nombre: string) {
     const path = `products/${id}`;
     try {
+      let ubicacionName = '';
+      try {
+        const prodSnap = await getDoc(doc(db, 'products', id));
+        if (prodSnap.exists()) {
+          const prodData = prodSnap.data();
+          if (prodData.ubicacionId) {
+            const locSnap = await getDoc(doc(db, 'locations', prodData.ubicacionId));
+            if (locSnap.exists()) {
+              const locData = locSnap.data();
+              ubicacionName = `${locData.centro || ''} (${locData.nombreCliente || ''})`.trim();
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Could not fetch location before deleting product:", e);
+      }
+
       await deleteDoc(doc(db, 'products', id));
-      await logMovement(id, nombre, MovementType.DELETE, `Producto eliminado: ${nombre}`);
+      await logMovement(id, nombre, MovementType.DELETE, `Producto eliminado: ${nombre}`, ubicacionName);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, path);
     }

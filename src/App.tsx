@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, User, signInAnonymously } from 'firebase/auth';
-import { auth, login, logout, loginWithEmail, registerWithEmail, db, emailToDocId } from './firebase';
+import { auth, login, logout, loginWithEmail, registerWithEmail, resetPassword, db, emailToDocId } from './firebase';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { AppUser } from './types';
 import { Layout } from './components/Layout';
@@ -16,7 +16,7 @@ import { Reports } from './components/Reports';
 import { SensorsPerBuoy } from './components/SensorsPerBuoy';
 import { Maintenance } from './components/Maintenance';
 import { UserManager } from './components/UserManager';
-import { Package, MapPin, BarChart3, History, LogIn, LogOut, ShieldCheck, UserPlus, Menu, X, Cpu, Wrench, Users } from 'lucide-react';
+import { Package, MapPin, BarChart3, History, LogIn, LogOut, ShieldCheck, UserPlus, Menu, X, Cpu, Wrench, Users, KeyRound } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 type View = 'dashboard' | 'inventory' | 'locations' | 'reports' | 'sensors' | 'maintenance' | 'users';
@@ -29,7 +29,8 @@ export default function App() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [resetSuccess, setResetSuccess] = useState('');
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -227,6 +228,38 @@ export default function App() {
     }
   };
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+    setResetSuccess('');
+    setLoading(true);
+
+    const emailTrim = username.toLowerCase().trim();
+    const email = emailTrim.includes('@') ? emailTrim : `${emailTrim}@demo.com`;
+
+    if (!emailTrim) {
+      setLoginError('Por favor ingrese su correo electrónico.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      await resetPassword(email);
+      setResetSuccess('Se ha enviado un correo de reestablecimiento de contraseña a ' + email + '. Por favor revisa tu bandeja de entrada.');
+    } catch (error: any) {
+      console.warn("Reset Password Error:", error);
+      if (error.code === 'auth/user-not-found') {
+        setLoginError('No se encontró ningún usuario con este correo electrónico.');
+      } else if (error.code === 'auth/invalid-email') {
+        setLoginError('Formato de correo inválido.');
+      } else {
+        setLoginError('Error: ' + (error.message || error));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleLogoutCustom = async () => {
     localStorage.removeItem('custom_user_profile');
     setProfile(null);
@@ -273,68 +306,130 @@ export default function App() {
           </p>
 
           <div className="space-y-6">
-            <div className="flex bg-white/5 p-1 rounded-xl">
-              <button 
-                onClick={() => setAuthMode('login')}
-                className={`flex-1 py-2 text-[10px] uppercase font-bold tracking-widest rounded-lg transition-all ${authMode === 'login' ? 'bg-white text-[#0f172a]' : 'opacity-40 hover:opacity-100'}`}
-              >
-                Entrar
-              </button>
-              <button 
-                onClick={() => setAuthMode('register')}
-                className={`flex-1 py-2 text-[10px] uppercase font-bold tracking-widest rounded-lg transition-all ${authMode === 'register' ? 'bg-white text-[#0f172a]' : 'opacity-40 hover:opacity-100'}`}
-              >
-                Registrarse
-              </button>
-            </div>
+            {authMode === 'forgot' ? (
+              <div className="space-y-6 animate-fade-in">
+                <div className="text-center px-1">
+                  <h2 className="text-sm font-bold tracking-wider text-cyan-400 mb-1.5 font-mono uppercase">Reestablecer Contraseña</h2>
+                  <p className="text-xs opacity-60 leading-relaxed">
+                    Escribe tu email registrado y te enviaremos instrucciones de recuperación de inmediato.
+                  </p>
+                </div>
 
-            <form onSubmit={handleAuth} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-mono uppercase opacity-40 ml-1">Email / Correo Electrónico</label>
-                <input 
-                  type="email" 
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Ej: usuario@empresa.com"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-white/40"
-                  required
-                />
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono uppercase opacity-40 ml-1">Email / Correo Electrónico</label>
+                    <input 
+                      type="email" 
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="Ej: usuario@empresa.com"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-white/40 text-white"
+                      required
+                    />
+                  </div>
+
+                  {resetSuccess && (
+                    <p className="text-[10px] text-emerald-400 text-center uppercase tracking-wider font-bold max-w-xs mx-auto leading-tight bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20">
+                      {resetSuccess}
+                    </p>
+                  )}
+                  
+                  {loginError && <p className="text-[10px] text-red-400 text-center uppercase tracking-wider font-bold max-w-xs mx-auto leading-tight bg-red-500/10 p-3 rounded-xl border border-red-500/20">{loginError}</p>}
+
+                  <button
+                    type="submit"
+                    className="w-full flex items-center justify-center gap-2 bg-white/10 text-white py-3 px-6 rounded-2xl hover:bg-white/20 transition-colors font-bold text-sm tracking-wider"
+                  >
+                    <KeyRound size={18} />
+                    Enviar Enlace de Recuperación
+                  </button>
+                </form>
+
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode('login'); setLoginError(''); setResetSuccess(''); }}
+                  className="w-full text-center text-[10px] font-mono uppercase tracking-widest opacity-50 hover:opacity-100 transition-opacity block py-2"
+                >
+                  ← Volver al Acceso
+                </button>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-mono uppercase opacity-40 ml-1">Contraseña</label>
-                <input 
-                  type="password" 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-white/40"
-                  required
-                />
-              </div>
-              
-              {loginError && <p className="text-[10px] text-red-400 text-center uppercase tracking-wider font-bold max-w-xs mx-auto leading-tight">{loginError}</p>}
+            ) : (
+              <>
+                <div className="flex bg-white/5 p-1 rounded-xl">
+                  <button 
+                    onClick={() => { setAuthMode('login'); setLoginError(''); setResetSuccess(''); }}
+                    className={`flex-1 py-2 text-[10px] uppercase font-bold tracking-widest rounded-lg transition-all ${authMode === 'login' ? 'bg-white text-[#0f172a]' : 'opacity-40 hover:opacity-100'}`}
+                  >
+                    Entrar
+                  </button>
+                  <button 
+                    onClick={() => { setAuthMode('register'); setLoginError(''); setResetSuccess(''); }}
+                    className={`flex-1 py-2 text-[10px] uppercase font-bold tracking-widest rounded-lg transition-all ${authMode === 'register' ? 'bg-white text-[#0f172a]' : 'opacity-40 hover:opacity-100'}`}
+                  >
+                    Registrarse
+                  </button>
+                </div>
 
-              <button
-                type="submit"
-                className="w-full flex items-center justify-center gap-2 bg-white/10 text-white py-3 px-6 rounded-2xl hover:bg-white/20 transition-colors font-bold text-sm tracking-wider"
-              >
-                {authMode === 'login' ? <ShieldCheck size={18} /> : <UserPlus size={18} />}
-                {authMode === 'login' ? 'Acceder al Sistema' : 'Crear Cuenta Demo'}
-              </button>
-            </form>
+                <form onSubmit={handleAuth} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono uppercase opacity-40 ml-1">Email / Correo Electrónico</label>
+                    <input 
+                      type="email" 
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="Ej: usuario@empresa.com"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-white/40"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center ml-1">
+                      <label className="text-[10px] font-mono uppercase opacity-40">Contraseña</label>
+                      {authMode === 'login' && (
+                        <button
+                          type="button"
+                          onClick={() => { setAuthMode('forgot'); setLoginError(''); setResetSuccess(''); }}
+                          className="text-[10px] font-mono uppercase opacity-50 hover:opacity-100 transition-opacity text-cyan-400 hover:underline"
+                        >
+                          ¿Olvidaste tu contraseña?
+                        </button>
+                      )}
+                    </div>
+                    <input 
+                      type="password" 
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-white/40"
+                      required
+                    />
+                  </div>
+                  
+                  {loginError && <p className="text-[10px] text-red-400 text-center uppercase tracking-wider font-bold max-w-xs mx-auto leading-tight">{loginError}</p>}
 
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10"></div></div>
-              <div className="relative flex justify-center text-[10px] uppercase tracking-widest"><span className="bg-[#1e293b] px-3 opacity-40 text-white">O usa tu cuenta de</span></div>
-            </div>
+                  <button
+                    type="submit"
+                    className="w-full flex items-center justify-center gap-2 bg-white/10 text-white py-3 px-6 rounded-2xl hover:bg-white/20 transition-colors font-bold text-sm tracking-wider"
+                  >
+                    {authMode === 'login' ? <ShieldCheck size={18} /> : <UserPlus size={18} />}
+                    {authMode === 'login' ? 'Acceder al Sistema' : 'Crear Cuenta Demo'}
+                  </button>
+                </form>
 
-            <button
-              onClick={login}
-              className="w-full flex items-center justify-center gap-2 bg-white text-[#0f172a] py-3 px-6 rounded-2xl hover:bg-cyan-50 transition-colors font-bold text-sm tracking-wider"
-            >
-              <LogIn size={18} />
-              Google Login
-            </button>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10"></div></div>
+                  <div className="relative flex justify-center text-[10px] uppercase tracking-widest"><span className="bg-[#1e293b] px-3 opacity-40 text-white">O usa tu cuenta de</span></div>
+                </div>
+
+                <button
+                  onClick={login}
+                  className="w-full flex items-center justify-center gap-2 bg-white text-[#0f172a] py-3 px-6 rounded-2xl hover:bg-cyan-50 transition-colors font-bold text-sm tracking-wider"
+                >
+                  <LogIn size={18} />
+                  Google Login
+                </button>
+              </>
+            )}
           </div>
         </motion.div>
       </div>

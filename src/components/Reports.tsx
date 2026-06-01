@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/dbService';
-import { Movement, MovementType } from '../types';
-import { History, Download, FileText, Filter } from 'lucide-react';
+import { Movement, MovementType, Product, Location } from '../types';
+import { History, Download, FileText, Filter, MapPin } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export function Reports() {
   const [movements, setMovements] = useState<Movement[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -14,9 +16,29 @@ export function Reports() {
 
   const fetchData = async () => {
     setLoading(true);
-    const data = await dbService.getMovements();
-    setMovements(data || []);
+    const [movData, prodData, locData] = await Promise.all([
+      dbService.getMovements(),
+      dbService.getProducts(),
+      dbService.getLocations()
+    ]);
+    setMovements(movData || []);
+    setProducts(prodData || []);
+    setLocations(locData || []);
     setLoading(false);
+  };
+
+  const getMovementLocation = (move: Movement) => {
+    if (move.ubicacionName) {
+      return move.ubicacionName;
+    }
+    const product = products.find(p => p.id === move.productId || p.serie === move.productId);
+    if (product && product.ubicacionId) {
+      const loc = locations.find(l => l.id === product.ubicacionId);
+      if (loc) {
+        return `${loc.centro} (${loc.nombreCliente})`;
+      }
+    }
+    return null;
   };
 
   const getBadgeStyle = (type: MovementType) => {
@@ -73,7 +95,14 @@ export function Reports() {
                     <span className="font-bold text-base tracking-tight">{move.productName}</span>
                     <span className="text-[10px] opacity-20 font-mono tracking-widest md:group-hover:opacity-100 transition-opacity whitespace-nowrap">#{move.productId?.slice(-6).toUpperCase()}</span>
                   </div>
-                  <p className="text-sm opacity-50 font-medium">{move.description}</p>
+                  <p className="text-sm opacity-50 font-medium mb-1">{move.description}</p>
+                  {getMovementLocation(move) && (
+                    <div className="mt-1 flex items-center gap-1.5 text-[11px] font-mono text-cyan-400">
+                      <MapPin size={10} className="text-cyan-400/80" />
+                      <span className="opacity-60 uppercase text-[9px] tracking-wider font-sans">Sede / Centro:</span>
+                      <span className="font-bold">{getMovementLocation(move)}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="text-left md:text-right mt-2 md:mt-0">

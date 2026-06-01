@@ -113,7 +113,8 @@ service cloud.firestore {
         && (data.type in ['create', 'update', 'delete'])
         && (data.timestamp is timestamp)
         && (data.description is string && data.description.size() <= 1000)
-        && (data.userEmail is string && data.userEmail.size() <= 200);
+        && (data.userEmail is string && data.userEmail.size() <= 200)
+        && (data.get('ubicacionName', '') is string && data.get('ubicacionName', '').size() <= 300);
     }
 
     match /movements/{movementId} {

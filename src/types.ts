@@ -45,6 +45,7 @@ export interface Movement {
   timestamp: any;
   description: string;
   userEmail: string;
+  ubicacionName?: string;
 }
 
 export interface AppUser {
