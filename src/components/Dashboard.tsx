@@ -4,7 +4,7 @@ import { Product, Location, Movement, ProductHealth } from '../types';
 import { Package, MapPin, Activity, AlertCircle, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
 
-export function Dashboard({ onNavigate }: { onNavigate: (view: any) => void }) {
+export function Dashboard({ onNavigate, isReadOnly = false }: { onNavigate: (view: any) => void, isReadOnly?: boolean }) {
   const [stats, setStats] = useState({
     totalProducts: 0,
     badCondition: 0,
@@ -131,13 +131,13 @@ export function Dashboard({ onNavigate }: { onNavigate: (view: any) => void }) {
           <h3 className="text-sm font-semibold uppercase opacity-60 tracking-wider">Atajos rápidos</h3>
           <div className="space-y-4">
             <QuickAction 
-              label="Registrar Equipo" 
-              desc="Ingreso manual de nueva serie" 
+              label={isReadOnly ? "Explorar Equipos" : "Registrar Equipo"} 
+              desc={isReadOnly ? "Ver inventario de sensores y marcas" : "Ingreso manual de nueva serie"} 
               onClick={() => onNavigate('inventory')}
             />
             <QuickAction 
-              label="Nueva Ubicación" 
-              desc="Configurar cliente o sede" 
+              label={isReadOnly ? "Ver Ubicaciones" : "Nueva Ubicación"} 
+              desc={isReadOnly ? "Explorar centros y sedes del mapa" : "Configurar cliente o sede"} 
               onClick={() => onNavigate('locations')}
             />
             <div className="p-6 glass-dark border border-white/10 rounded-3xl space-y-3 relative overflow-hidden">

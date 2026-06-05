@@ -16,6 +16,7 @@ export const db = initializeFirestore(app, {
   ignoreUndefinedProperties: true
 }, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
+auth.languageCode = 'es';
 export const googleProvider = new GoogleAuthProvider();
 
 export function emailToDocId(email: string): string {

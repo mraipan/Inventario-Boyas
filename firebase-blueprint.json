@@ -63,6 +63,29 @@
         "createdBy": { "type": "string" }
       },
       "required": ["nombre", "correo", "telefono", "cargo", "createdAt", "createdBy"]
+    },
+    "ChecklistReport": {
+      "title": "Reporte de Tareas Checklist",
+      "description": "Un reporte de checklist de tareas de mantenimiento realizadas en una ubicación.",
+      "type": "object",
+      "properties": {
+        "ubicacionId": { "type": "string", "description": "ID de la ubicación asociada" },
+        "ubicacionCentro": { "type": "string", "description": "Nombre de la boya/centro" },
+        "ubicacionCliente": { "type": "string", "description": "Nombre del cliente" },
+        "observaciones": { "type": "string", "description": "Observaciones adicionales" },
+        "cambioSensores": { "type": "boolean" },
+        "limpiezaSensores": { "type": "boolean" },
+        "cambioTarjetaLora": { "type": "boolean" },
+        "cambioCableConexion": { "type": "boolean" },
+        "cambioPanelesSolares": { "type": "boolean" },
+        "reemplazoBateriaBoya": { "type": "boolean" },
+        "reemplazoBateriaAdcp": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" },
+        "creadoPorNombre": { "type": "string" },
+        "creadoPorEmail": { "type": "string" }
+      },
+      "required": ["ubicacionId", "ubicacionCentro", "ubicacionCliente", "createdAt", "createdBy", "creadoPorNombre", "creadoPorEmail"]
     }
   },
   "firestore": {
@@ -81,6 +104,10 @@
     "users/{userId}": {
       "schema": "AppUser",
       "description": "Lista de usuarios de la aplicación."
+    },
+    "checklistReports/{reportId}": {
+      "schema": "ChecklistReport",
+      "description": "Reportes de checklists de tareas de mantenimiento."
     }
   }
 }

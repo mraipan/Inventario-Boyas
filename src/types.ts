@@ -59,6 +59,25 @@ export interface AppUser {
   createdBy: string;
 }
 
+export interface ChecklistReport {
+  id?: string;
+  ubicacionId: string;
+  ubicacionCentro: string;
+  ubicacionCliente: string;
+  cambioSensores: boolean;
+  limpiezaSensores: boolean;
+  cambioTarjetaLora: boolean;
+  cambioCableConexion: boolean;
+  cambioPanelesSolares: boolean;
+  reemplazoBateriaBoya: boolean;
+  reemplazoBateriaAdcp: boolean;
+  observaciones?: string;
+  createdAt: any;
+  createdBy: string;
+  creadoPorNombre: string;
+  creadoPorEmail: string;
+}
+
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',

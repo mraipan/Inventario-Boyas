@@ -4,7 +4,11 @@ import { AppUser } from '../types';
 import { Plus, Users, Mail, Phone, Pencil, Trash2, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-export function UserManager() {
+interface UserManagerProps {
+  isReadOnly?: boolean;
+}
+
+export function UserManager({ isReadOnly = false }: UserManagerProps) {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -35,13 +39,15 @@ export function UserManager() {
           <h1 className="text-2xl md:text-3xl font-light tracking-tight">Gestión de <span className="font-bold">Usuarios</span></h1>
           <p className="text-[10px] font-mono opacity-50 uppercase tracking-widest mt-1">Registrar y listar usuarios del sistema</p>
         </div>
-        <button
-          onClick={() => { setEditingUser(null); setIsModalOpen(true); }}
-          className="w-full md:w-auto bg-white text-[#0f172a] py-3 px-6 rounded-2xl hover:bg-cyan-50 transition-colors font-bold text-sm tracking-wider flex items-center justify-center gap-2"
-        >
-          <Plus size={18} />
-          Nuevo Usuario
-        </button>
+        {!isReadOnly && (
+          <button
+            onClick={() => { setEditingUser(null); setIsModalOpen(true); }}
+            className="w-full md:w-auto bg-white text-[#0f172a] py-3 px-6 rounded-2xl hover:bg-cyan-50 transition-colors font-bold text-sm tracking-wider flex items-center justify-center gap-2"
+          >
+            <Plus size={18} />
+            Nuevo Usuario
+          </button>
+        )}
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 font-sans">
@@ -63,10 +69,12 @@ export function UserManager() {
                 <div className="p-3 bg-white/10 rounded-2xl group-hover:bg-cyan-500/20 group-hover:text-cyan-400 transition-all duration-500">
                   <Users size={24} />
                 </div>
-                <div className="flex gap-2 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all">
-                  <button onClick={() => { setEditingUser(user); setIsModalOpen(true); }} className="px-3 py-1.5 glass-dark hover:bg-white/10 text-[10px] font-bold uppercase transition-colors">Editar</button>
-                  <button onClick={() => handleDelete(user.id!, user.nombre)} className="px-3 py-1.5 glass-dark hover:bg-red-500/20 text-[10px] font-bold uppercase text-red-400 transition-colors">Borrar</button>
-                </div>
+                {!isReadOnly && (
+                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all">
+                    <button onClick={() => { setEditingUser(user); setIsModalOpen(true); }} className="px-3 py-1.5 glass-dark hover:bg-white/10 text-[10px] font-bold uppercase transition-colors">Editar</button>
+                    <button onClick={() => handleDelete(user.id!, user.nombre)} className="px-3 py-1.5 glass-dark hover:bg-red-500/20 text-[10px] font-bold uppercase text-red-400 transition-colors">Borrar</button>
+                  </div>
+                )}
               </div>
               
               <div className="relative z-10 flex-grow flex flex-col">

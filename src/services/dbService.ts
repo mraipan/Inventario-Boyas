@@ -14,7 +14,7 @@ import {
   deleteField
 } from 'firebase/firestore';
 import { db, auth, registerAuthUserWithoutLoggingOut, emailToDocId } from '../firebase';
-import { OperationType, FirestoreErrorInfo, Product, Location, Movement, MovementType, AppUser } from '../types';
+import { OperationType, FirestoreErrorInfo, Product, Location, Movement, MovementType, AppUser, ChecklistReport } from '../types';
 
 const getSessionUid = () => {
   if (auth.currentUser) return auth.currentUser.uid;
@@ -379,6 +379,36 @@ export const dbService = {
     const path = `users/${id}`;
     try {
       await deleteDoc(doc(db, 'users', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  // Checklist Reports
+  async getChecklistReports() {
+    const path = 'checklistReports';
+    try {
+      const q = query(collection(db, path), orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChecklistReport));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, path);
+    }
+  },
+
+  async addChecklistReport(report: Omit<ChecklistReport, 'createdAt' | 'createdBy' | 'id'>) {
+    const path = 'checklistReports';
+    try {
+      if (!auth.currentUser && !isSessionAuthenticated()) throw new Error("Usuario no autenticado");
+      
+      const { id: _, createdAt: __, createdBy: ___, ...dataToAdd } = report as any;
+      const payload = {
+        ...dataToAdd,
+        createdAt: serverTimestamp(),
+        createdBy: getSessionUid()
+      };
+      
+      await addDoc(collection(db, path), payload);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, path);
     }

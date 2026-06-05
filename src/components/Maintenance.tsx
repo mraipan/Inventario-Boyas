@@ -20,7 +20,11 @@ import { CalibrationDocumentField } from './CalibrationDocumentField';
 import { downloadCalibrationDocument } from '../utils/fileHelpers';
 import { motion, AnimatePresence } from 'motion/react';
 
-export function Maintenance() {
+interface MaintenanceProps {
+  isReadOnly?: boolean;
+}
+
+export function Maintenance({ isReadOnly = false }: MaintenanceProps) {
   const [locations, setLocations] = useState<Location[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -318,18 +322,20 @@ export function Maintenance() {
                                       <span>Certificado</span>
                                     </button>
                                   )}
-                                  <button
-                                    onClick={() => handleOpenMaintenance(p)}
-                                    className={`px-4 py-2.5 flex-1 sm:flex-initial rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2
-                                      ${isUnderMaintenance 
-                                        ? 'bg-cyan-400 text-[#0f172a] shadow-[0_0_15px_rgba(34,211,238,0.4)]' 
-                                        : 'bg-white/10 hover:bg-white/20 text-white border border-white/5'
-                                      }
-                                    `}
-                                  >
-                                    <Wrench size={13} />
-                                    <span>Hacer Mantención</span>
-                                  </button>
+                                  {!isReadOnly && (
+                                    <button
+                                      onClick={() => handleOpenMaintenance(p)}
+                                      className={`px-4 py-2.5 flex-1 sm:flex-initial rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2
+                                        ${isUnderMaintenance 
+                                          ? 'bg-cyan-400 text-[#0f172a] shadow-[0_0_15px_rgba(34,211,238,0.4)]' 
+                                          : 'bg-white/10 hover:bg-white/20 text-white border border-white/5'
+                                        }
+                                      `}
+                                    >
+                                      <Wrench size={13} />
+                                      <span>Hacer Mantención</span>
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             </div>

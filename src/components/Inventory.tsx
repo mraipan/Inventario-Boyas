@@ -8,7 +8,11 @@ import { downloadCalibrationDocument } from '../utils/fileHelpers';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
 
-export function Inventory() {
+interface InventoryProps {
+  isReadOnly?: boolean;
+}
+
+export function Inventory({ isReadOnly = false }: InventoryProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
@@ -235,21 +239,25 @@ export function Inventory() {
           <p className="text-[10px] font-mono opacity-50 uppercase tracking-widest mt-1">Control de Equipos y Calibraciones</p>
         </div>
         <div className="flex gap-2 w-full md:w-auto">
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleImportCSV} 
-            accept=".csv" 
-            className="hidden" 
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex-1 md:flex-none glass bg-white/5 text-white py-3 px-4 rounded-2xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2 border border-white/5"
-            title="Importar CSV"
-          >
-            <Upload size={18} className="opacity-70" />
-            <span className="md:hidden lg:inline text-xs font-bold uppercase tracking-wider">Importar</span>
-          </button>
+          {!isReadOnly && (
+            <>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleImportCSV} 
+                accept=".csv" 
+                className="hidden" 
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex-1 md:flex-none glass bg-white/5 text-white py-3 px-4 rounded-2xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2 border border-white/5"
+                title="Importar CSV"
+              >
+                <Upload size={18} className="opacity-70" />
+                <span className="md:hidden lg:inline text-xs font-bold uppercase tracking-wider">Importar</span>
+              </button>
+            </>
+          )}
           <button
             onClick={exportToExcel}
             className="flex-1 md:flex-none glass bg-white/5 text-white py-3 px-4 rounded-2xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2 border border-white/5"
@@ -258,13 +266,15 @@ export function Inventory() {
             <Download size={18} className="opacity-70" />
             <span className="md:hidden lg:inline text-xs font-bold uppercase tracking-wider">Exportar</span>
           </button>
-          <button
-            onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
-            className="flex-[2] md:flex-none bg-white text-[#0f172a] py-3 px-6 rounded-2xl hover:bg-cyan-50 transition-colors font-bold text-sm tracking-wider flex items-center justify-center gap-2"
-          >
-            <Plus size={18} />
-            Nuevo Registro
-          </button>
+          {!isReadOnly && (
+            <button
+              onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
+              className="flex-[2] md:flex-none bg-white text-[#0f172a] py-3 px-6 rounded-2xl hover:bg-cyan-50 transition-colors font-bold text-sm tracking-wider flex items-center justify-center gap-2"
+            >
+              <Plus size={18} />
+              Nuevo Registro
+            </button>
+          )}
         </div>
       </header>
 
@@ -290,7 +300,7 @@ export function Inventory() {
                 <th className="p-6 font-medium text-xs uppercase tracking-widest text-center">Serie</th>
                 <th className="p-6 font-medium text-xs uppercase tracking-widest text-center">Estado de Salud</th>
                 <th className="p-6 font-medium text-xs uppercase tracking-widest">Ubicación</th>
-                <th className="p-6 font-medium text-xs uppercase tracking-widest text-right">Acción</th>
+                {!isReadOnly && <th className="p-6 font-medium text-xs uppercase tracking-widest text-right">Acción</th>}
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-white/5">
@@ -343,24 +353,26 @@ export function Inventory() {
                       <div className="font-medium">{locations.find(l => l.id === p.ubicacionId)?.centro || 'No asignada'}</div>
                       <div className="text-[10px] opacity-40 uppercase tracking-tight">{locations.find(l => l.id === p.ubicacionId)?.nombreCliente}</div>
                     </td>
-                    <td className="p-6 text-right">
-                      <div className="flex justify-end gap-1 md:gap-3 lg:translate-x-2 lg:opacity-0 lg:group-hover:opacity-100 lg:group-hover:translate-x-0 transition-all">
-                        <button 
-                          onClick={() => { setEditingProduct(p); setIsModalOpen(true); }}
-                          className="p-2 md:p-2 hover:bg-white/10 rounded-xl text-white/40 hover:text-white transition-colors"
-                          title="Editar"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(p.id!, p.nombre)}
-                          className="p-2 md:p-2 hover:bg-red-500/20 rounded-xl text-white/40 hover:text-red-400 transition-colors"
-                          title="Eliminar"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
+                    {!isReadOnly && (
+                      <td className="p-6 text-right">
+                        <div className="flex justify-end gap-1 md:gap-3 lg:translate-x-2 lg:opacity-0 lg:group-hover:opacity-100 lg:group-hover:translate-x-0 transition-all">
+                          <button 
+                            onClick={() => { setEditingProduct(p); setIsModalOpen(true); }}
+                            className="p-2 md:p-2 hover:bg-white/10 rounded-xl text-white/40 hover:text-white transition-colors"
+                            title="Editar"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(p.id!, p.nombre)}
+                            className="p-2 md:p-2 hover:bg-red-500/20 rounded-xl text-white/40 hover:text-red-400 transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))
               )}

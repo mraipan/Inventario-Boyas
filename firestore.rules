@@ -129,6 +129,25 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // --- ChecklistReport Logic ---
+    function isValidChecklistReport(data) {
+      return data.ubicacionId is string && data.ubicacionId.size() <= 100
+        && data.ubicacionCentro is string && data.ubicacionCentro.size() <= 200
+        && data.ubicacionCliente is string && data.ubicacionCliente.size() <= 200
+        && (data.get('observaciones', '') is string && data.get('observaciones', '').size() <= 5000)
+        && (data.get('cambioSensores', false) is bool)
+        && (data.get('limpiezaSensores', false) is bool)
+        && (data.get('cambioTarjetaLora', false) is bool)
+        && (data.get('cambioCableConexion', false) is bool)
+        && (data.get('cambioPanelesSolares', false) is bool)
+        && (data.get('reemplazoBateriaBoya', false) is bool)
+        && (data.get('reemplazoBateriaAdcp', false) is bool)
+        && data.createdAt is timestamp
+        && data.createdBy is string && data.createdBy.size() <= 128
+        && data.creadoPorNombre is string && data.creadoPorNombre.size() <= 200
+        && data.creadoPorEmail is string && data.creadoPorEmail.size() <= 200;
+    }
+
     // --- AppUser Logic ---
     function isValidAppUser(data) {
       return data.nombre is string && data.nombre.size() <= 200
@@ -157,6 +176,27 @@ service cloud.firestore {
         && (incoming().get('updatedAt', null) == request.time)
         && (
           incoming().diff(existing()).affectedKeys().hasOnly(['nombre', 'correo', 'telefono', 'contrasena', 'cargo', 'updatedAt'])
+        );
+      
+      allow delete: if isSignedIn();
+    }
+
+    match /checklistReports/{reportId} {
+      allow list, get: if isSignedIn();
+      
+      allow create: if isSignedIn()
+        && isValidId(reportId)
+        && isValidChecklistReport(incoming())
+        && incoming().createdAt == request.time
+        && incoming().createdBy == getAuthUid();
+      
+      allow update: if isSignedIn()
+        && isValidChecklistReport(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().createdBy == existing().createdBy
+        && (incoming().get('updatedAt', null) == request.time)
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['observaciones', 'cambioSensores', 'limpiezaSensores', 'cambioTarjetaLora', 'cambioCableConexion', 'cambioPanelesSolares', 'reemplazoBateriaBoya', 'reemplazoBateriaAdcp', 'updatedAt'])
         );
       
       allow delete: if isSignedIn();

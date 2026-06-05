@@ -16,10 +16,11 @@ import { Reports } from './components/Reports';
 import { SensorsPerBuoy } from './components/SensorsPerBuoy';
 import { Maintenance } from './components/Maintenance';
 import { UserManager } from './components/UserManager';
-import { Package, MapPin, BarChart3, History, LogIn, LogOut, ShieldCheck, UserPlus, Menu, X, Cpu, Wrench, Users, KeyRound } from 'lucide-react';
+import { ChecklistReportView } from './components/ChecklistReportView';
+import { Package, MapPin, BarChart3, History, LogIn, LogOut, ShieldCheck, UserPlus, Menu, X, Cpu, Wrench, Users, KeyRound, ClipboardList } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-type View = 'dashboard' | 'inventory' | 'locations' | 'reports' | 'sensors' | 'maintenance' | 'users';
+type View = 'dashboard' | 'inventory' | 'locations' | 'reports' | 'sensors' | 'maintenance' | 'users' | 'checklist';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -32,6 +33,8 @@ export default function App() {
   const [resetSuccess, setResetSuccess] = useState('');
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const isReadOnly = profile?.cargo === 'Técnico' || profile?.cargo === 'Tecnico';
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -510,6 +513,12 @@ export default function App() {
               label="Sensores por Boya"
             />
             <NavButton 
+              active={currentView === 'checklist'} 
+              onClick={() => { setCurrentView('checklist'); setIsSidebarOpen(false); }}
+              icon={<ClipboardList size={18} />}
+              label="Reporte"
+            />
+            <NavButton 
               active={currentView === 'reports'} 
               onClick={() => { setCurrentView('reports'); setIsSidebarOpen(false); }}
               icon={<History size={18} />}
@@ -566,13 +575,14 @@ export default function App() {
               className="h-full flex flex-col pt-2 lg:pt-0"
             >
               <div className="flex-1 overflow-y-auto custom-scrollbar lg:pr-2">
-                {currentView === 'dashboard' && <Dashboard onNavigate={setCurrentView} />}
-                {currentView === 'inventory' && <Inventory />}
-                {currentView === 'locations' && <LocationManager />}
-                {currentView === 'sensors' && <SensorsPerBuoy />}
-                {currentView === 'maintenance' && <Maintenance />}
+                {currentView === 'dashboard' && <Dashboard onNavigate={setCurrentView} isReadOnly={isReadOnly} />}
+                {currentView === 'inventory' && <Inventory isReadOnly={isReadOnly} />}
+                {currentView === 'locations' && <LocationManager isReadOnly={isReadOnly} />}
+                {currentView === 'sensors' && <SensorsPerBuoy isReadOnly={isReadOnly} />}
+                {currentView === 'maintenance' && <Maintenance isReadOnly={isReadOnly} />}
                 {currentView === 'reports' && <Reports />}
-                {currentView === 'users' && <UserManager />}
+                {currentView === 'checklist' && <ChecklistReportView profile={profile} user={user} />}
+                {currentView === 'users' && <UserManager isReadOnly={isReadOnly} />}
               </div>
             </motion.div>
           </AnimatePresence>

@@ -5,7 +5,11 @@ import { CHILE_REGIONS } from '../constants';
 import { Plus, Search, Pencil, Trash2, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-export function LocationManager() {
+interface LocationManagerProps {
+  isReadOnly?: boolean;
+}
+
+export function LocationManager({ isReadOnly = false }: LocationManagerProps) {
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -36,13 +40,15 @@ export function LocationManager() {
           <h1 className="text-2xl md:text-3xl font-light tracking-tight">Gestión de <span className="font-bold">Ubicaciones</span></h1>
           <p className="text-[10px] font-mono opacity-50 uppercase tracking-widest mt-1">Configuración de centros y Clientes</p>
         </div>
-        <button
-          onClick={() => { setEditingLocation(null); setIsModalOpen(true); }}
-          className="w-full md:w-auto bg-white text-[#0f172a] py-3 px-6 rounded-2xl hover:bg-cyan-50 transition-colors font-bold text-sm tracking-wider flex items-center justify-center gap-2"
-        >
-          <Plus size={18} />
-          Nueva Ubicación
-        </button>
+        {!isReadOnly && (
+          <button
+            onClick={() => { setEditingLocation(null); setIsModalOpen(true); }}
+            className="w-full md:w-auto bg-white text-[#0f172a] py-3 px-6 rounded-2xl hover:bg-cyan-50 transition-colors font-bold text-sm tracking-wider flex items-center justify-center gap-2"
+          >
+            <Plus size={18} />
+            Nueva Ubicación
+          </button>
+        )}
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -64,10 +70,12 @@ export function LocationManager() {
                 <div className="p-3 bg-white/10 rounded-2xl group-hover:bg-cyan-500/20 group-hover:text-cyan-400 transition-all duration-500">
                   <MapPin size={24} />
                 </div>
-                <div className="flex gap-2 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all">
-                  <button onClick={() => { setEditingLocation(loc); setIsModalOpen(true); }} className="px-3 py-1.5 glass-dark hover:bg-white/10 text-[10px] font-bold uppercase transition-colors">Editar</button>
-                  <button onClick={() => handleDelete(loc.id!)} className="px-3 py-1.5 glass-dark hover:bg-red-500/20 text-[10px] font-bold uppercase text-red-400 transition-colors">Borrar</button>
-                </div>
+                {!isReadOnly && (
+                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all">
+                    <button onClick={() => { setEditingLocation(loc); setIsModalOpen(true); }} className="px-3 py-1.5 glass-dark hover:bg-white/10 text-[10px] font-bold uppercase transition-colors">Editar</button>
+                    <button onClick={() => handleDelete(loc.id!)} className="px-3 py-1.5 glass-dark hover:bg-red-500/20 text-[10px] font-bold uppercase text-red-400 transition-colors">Borrar</button>
+                  </div>
+                )}
               </div>
               
               <div className="relative z-10 flex-1 flex flex-col">

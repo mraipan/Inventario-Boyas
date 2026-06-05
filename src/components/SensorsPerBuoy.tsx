@@ -8,7 +8,11 @@ import { downloadCalibrationDocument } from '../utils/fileHelpers';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
 
-export function SensorsPerBuoy() {
+interface SensorsPerBuoyProps {
+  isReadOnly?: boolean;
+}
+
+export function SensorsPerBuoy({ isReadOnly = false }: SensorsPerBuoyProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
@@ -314,21 +318,25 @@ export function SensorsPerBuoy() {
           <p className="text-[10px] font-mono opacity-50 uppercase tracking-widest mt-1">Sectores y Unidades Operativas</p>
         </div>
         <div className="flex gap-2 w-full md:w-auto">
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleImportCSV} 
-            accept=".csv" 
-            className="hidden" 
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex-1 md:flex-none glass bg-white/5 text-white py-3 px-4 rounded-2xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2 border border-white/5"
-            title="Importar CSV"
-          >
-            <Upload size={18} className="opacity-70" />
-            <span className="md:hidden lg:inline text-xs font-bold uppercase tracking-wider">Importar</span>
-          </button>
+          {!isReadOnly && (
+            <>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleImportCSV} 
+                accept=".csv" 
+                className="hidden" 
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex-1 md:flex-none glass bg-white/5 text-white py-3 px-4 rounded-2xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2 border border-white/5"
+                title="Importar CSV"
+              >
+                <Upload size={18} className="opacity-70" />
+                <span className="md:hidden lg:inline text-xs font-bold uppercase tracking-wider">Importar</span>
+              </button>
+            </>
+          )}
           <button
             onClick={exportToExcel}
             className="flex-1 md:flex-none glass bg-white/5 text-white py-3 px-4 rounded-2xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2 border border-white/5"
@@ -337,13 +345,15 @@ export function SensorsPerBuoy() {
             <Download size={18} className="opacity-70" />
             <span className="md:hidden lg:inline text-xs font-bold uppercase tracking-wider">Exportar</span>
           </button>
-          <button
-            onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
-            className="flex-1 md:flex-none bg-white text-[#0f172a] py-3 px-6 rounded-2xl hover:bg-cyan-50 transition-colors font-bold text-sm tracking-wider flex items-center justify-center gap-2"
-          >
-            <Plus size={18} />
-            Nuevo Sensor
-          </button>
+          {!isReadOnly && (
+            <button
+              onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
+              className="flex-1 md:flex-none bg-white text-[#0f172a] py-3 px-6 rounded-2xl hover:bg-cyan-50 transition-colors font-bold text-sm tracking-wider flex items-center justify-center gap-2"
+            >
+              <Plus size={18} />
+              Nuevo Sensor
+            </button>
+          )}
         </div>
       </header>
 
@@ -413,7 +423,7 @@ export function SensorsPerBuoy() {
                         <th className="p-4 font-medium text-[10px] uppercase tracking-widest text-center">Serie</th>
                         <th className="p-4 font-medium text-[10px] uppercase tracking-widest text-center">Salud</th>
                         <th className="p-4 font-medium text-[10px] uppercase tracking-widest">Últ. Calib.</th>
-                        <th className="p-4 pr-6 font-medium text-[10px] uppercase tracking-widest text-right">Acción</th>
+                        {!isReadOnly && <th className="p-4 pr-6 font-medium text-[10px] uppercase tracking-widest text-right">Acción</th>}
                       </tr>
                     </thead>
                     <tbody className="text-sm divide-y divide-white/5">
@@ -459,23 +469,25 @@ export function SensorsPerBuoy() {
                               )}
                             </div>
                           </td>
-                          <td className="p-4 pr-6 text-right">
-                            <div className="flex justify-end gap-1 opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                              <button 
-                                onClick={() => { setEditingProduct(p); setIsModalOpen(true); }}
-                                className="p-2 hover:bg-white/10 rounded-lg text-white/40 hover:text-white transition-colors"
-                                title="Editar"
-                              >
-                                <Pencil size={14} />
-                              </button>
-                            </div>
-                            {/* Mobile actions always visible or different */}
-                            <div className="lg:hidden flex justify-end gap-2">
-                              <button onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className="text-white/40">
-                                <Pencil size={14} />
-                              </button>
-                            </div>
-                          </td>
+                          {!isReadOnly && (
+                            <td className="p-4 pr-6 text-right">
+                              <div className="flex justify-end gap-1 opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                                <button 
+                                  onClick={() => { setEditingProduct(p); setIsModalOpen(true); }}
+                                  className="p-2 hover:bg-white/10 rounded-lg text-white/40 hover:text-white transition-colors"
+                                  title="Editar"
+                                >
+                                  <Pencil size={14} />
+                                </button>
+                              </div>
+                              {/* Mobile actions always visible or different */}
+                              <div className="lg:hidden flex justify-end gap-2">
+                                <button onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className="text-white/40">
+                                  <Pencil size={14} />
+                                </button>
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -483,7 +495,7 @@ export function SensorsPerBuoy() {
                 </div>
               </div>
 
-              {location.id !== 'unassigned' && (
+              {!isReadOnly && location.id !== 'unassigned' && (
                 <div className="flex flex-col gap-3 pt-2">
                   {addingForLocationId === location.id ? (
                     <motion.div 
