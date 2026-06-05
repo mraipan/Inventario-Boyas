@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/dbService';
 import { Location, ChecklistReport, AppUser } from '../types';
-import { ClipboardList, Save, History, MapPin, CheckSquare, Square, Check, User, Calendar, MessageSquare, AlertCircle, RefreshCw } from 'lucide-react';
+import { ClipboardList, Save, History, MapPin, CheckSquare, Square, Check, User, Calendar, MessageSquare, AlertCircle, RefreshCw, Cpu } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User as FirebaseUser } from 'firebase/auth';
 
@@ -13,6 +13,8 @@ interface ChecklistReportViewProps {
 export function ChecklistReportView({ profile, user }: ChecklistReportViewProps) {
   const [locations, setLocations] = useState<Location[]>([]);
   const [reports, setReports] = useState<ChecklistReport[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [selectedReplacements, setSelectedReplacements] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<'nuevo' | 'historial'>('nuevo');
@@ -34,6 +36,11 @@ export function ChecklistReportView({ profile, user }: ChecklistReportViewProps)
     fetchData();
   }, []);
 
+  // Reset selectedReplacements when selectedLocationId changes
+  useEffect(() => {
+    setSelectedReplacements({});
+  }, [selectedLocationId]);
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -49,6 +56,13 @@ export function ChecklistReportView({ profile, user }: ChecklistReportViewProps)
     } catch (err) {
       console.error("Error al cargar historial de tareas:", err);
     }
+
+    try {
+      const prodData = await dbService.getProducts();
+      setProducts(prodData || []);
+    } catch (err) {
+      console.error("Error al cargar sensores:", err);
+    }
     setLoading(false);
   };
 
@@ -62,6 +76,7 @@ export function ChecklistReportView({ profile, user }: ChecklistReportViewProps)
     setReemplazoBateriaBoya(false);
     setReemplazoBateriaAdcp(false);
     setObservaciones('');
+    setSelectedReplacements({});
     setSuccessMessage('');
     setErrorMessage('');
   };
@@ -101,6 +116,43 @@ export function ChecklistReportView({ profile, user }: ChecklistReportViewProps)
       const creadorNombre = profile?.nombre || user?.displayName || user?.email || 'Técnico';
       const creadorEmail = profile?.correo || user?.email || 'tecnico@demo.com';
 
+      let finalObservaciones = observaciones.trim();
+
+      // Perform sensor swaps in Firestore if selected
+      if (cambioSensores) {
+        const swapDetails: string[] = [];
+        for (const [oldSensorId, newSensorId] of Object.entries(selectedReplacements)) {
+          if (newSensorId) {
+            const oldProduct = products.find(p => p.id === oldSensorId);
+            const newProduct = products.find(p => p.id === newSensorId);
+
+            if (oldProduct && newProduct) {
+              const originalBodegaLocId = newProduct.ubicacionId;
+
+              // Step 1: Move old product to newProduct's Bodega location
+              await dbService.updateProduct(oldProduct.id!, {
+                ubicacionId: originalBodegaLocId,
+              });
+
+              // Step 2: Move new product to current location, sharing/inheriting the same depth
+              await dbService.updateProduct(newProduct.id!, {
+                ubicacionId: selectedLocationId,
+                profundidad: oldProduct.profundidad || undefined
+              });
+
+              swapDetails.push(`Se reemplazó ${oldProduct.nombre} (S/N: ${oldProduct.serie}) por ${newProduct.nombre} (S/N: ${newProduct.serie})`);
+            }
+          }
+        }
+
+        if (swapDetails.length > 0) {
+          const swapsText = `[Cambio de Sensores en Terreno]:\n` + swapDetails.join('\n');
+          finalObservaciones = finalObservaciones
+            ? `${finalObservaciones}\n\n${swapsText}`
+            : swapsText;
+        }
+      }
+
       const payload = {
         ubicacionId: selectedLocationId,
         ubicacionCentro: locSelected.centro,
@@ -112,7 +164,7 @@ export function ChecklistReportView({ profile, user }: ChecklistReportViewProps)
         cambioPanelesSolares,
         reemplazoBateriaBoya,
         reemplazoBateriaAdcp,
-        observaciones: observaciones.trim(),
+        observaciones: finalObservaciones,
         creadoPorNombre: creadorNombre,
         creadoPorEmail: creadorEmail
       };
@@ -120,9 +172,12 @@ export function ChecklistReportView({ profile, user }: ChecklistReportViewProps)
       await dbService.addChecklistReport(payload);
       setSuccessMessage('¡Reporte de tareas guardado con éxito!');
       resetForm();
-      // Reload history list
+      // Reload history list & cached products
       const updatedReports = await dbService.getChecklistReports();
       setReports(updatedReports || []);
+      const updatedProducts = await dbService.getProducts();
+      setProducts(updatedProducts || []);
+      
       // Switch view after brief delay
       setTimeout(() => {
         setActiveTab('historial');
@@ -261,6 +316,109 @@ export function ChecklistReportView({ profile, user }: ChecklistReportViewProps)
                       ))}
                     </div>
                   </div>
+
+                  {/* Dynamic Sensor Swap Panel */}
+                  {cambioSensores && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="glass p-6 md:p-8 rounded-3xl border border-cyan-500/20 space-y-6 shadow-[0_0_30px_rgba(34,211,238,0.05)] bg-slate-900/50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center border border-cyan-500/20 shadow-[0_0_15px_rgba(34,211,238,0.1)]">
+                          <Cpu size={20} />
+                        </div>
+                        <div>
+                          <h2 className="text-lg font-bold tracking-tight text-white">Gestión de Cambio de Sensores</h2>
+                          <p className="text-xs text-white/50">Lista de sensores de la ubicación actual. Puede reasignar las series usando equipos de Bodega.</p>
+                        </div>
+                      </div>
+
+                      {!selectedLocationId ? (
+                        <div className="p-8 bg-white/2 border border-white/5 rounded-2xl text-center text-xs text-white/40 italic">
+                          ⚠️ Por favor, seleccione una ubicación arriba para desplegar sus sensores.
+                        </div>
+                      ) : (() => {
+                        const currentLocationSensors = products.filter(p => p.ubicacionId === selectedLocationId);
+                        const bodegaLocationIds = locations.filter(l => l.centro.toLowerCase().includes('bodega')).map(l => l.id);
+                        const bodegaSensors = products.filter(p => p.ubicacionId && bodegaLocationIds.includes(p.ubicacionId));
+
+                        if (currentLocationSensors.length === 0) {
+                          return (
+                            <div className="p-8 bg-white/2 border border-white/5 rounded-2xl text-center text-xs text-white/40 italic">
+                              No hay sensores registrados ni asignados actualmente en esta ubicación.
+                            </div>
+                          );
+                        }
+
+                        if (bodegaSensors.length === 0) {
+                          return (
+                            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-300 text-xs text-center font-medium">
+                              ⚠️ No hay sensores disponibles con ubicación "Bodega" para realizar el cambio en esta sesión.
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="space-y-4">
+                            {currentLocationSensors.map((sensor) => {
+                              const chosenReplacementId = selectedReplacements[sensor.id || ''] || '';
+                              
+                              // Offer same-name sensors first for easier tracking
+                              const filteredBodegaSensors = [...bodegaSensors].sort((a, b) => {
+                                const aMatches = a.nombre.toLowerCase() === sensor.nombre.toLowerCase();
+                                const bMatches = b.nombre.toLowerCase() === sensor.nombre.toLowerCase();
+                                if (aMatches && !bMatches) return -1;
+                                if (!aMatches && bMatches) return 1;
+                                return a.nombre.localeCompare(b.nombre);
+                              });
+
+                              return (
+                                <div key={sensor.id} className="p-5 bg-white/2 border border-white/5 rounded-2xl hover:border-white/10 transition-all space-y-4">
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/2 p-3 rounded-xl border border-white/5">
+                                    <div>
+                                      <p className="text-xs font-bold text-white flex items-center gap-1.5">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+                                        {sensor.nombre}
+                                      </p>
+                                      <p className="text-[11px] opacity-50 mt-0.5">{sensor.marca} • {sensor.modelo}</p>
+                                    </div>
+                                    <div className="sm:text-right font-mono">
+                                      <span className="text-[9px] opacity-40 uppercase tracking-widest block">Serie Instalada</span>
+                                      <span className="text-xs font-bold text-cyan-400">{sensor.serie}</span>
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-1.5">
+                                    <label className="text-[10px] font-mono uppercase opacity-40 tracking-widest text-white block">
+                                      Intercambiar por equipo de Bodega
+                                    </label>
+                                    <select
+                                      className="w-full bg-[#111827] border border-white/10 rounded-xl px-4 py-2.5 outline-none text-xs text-white cursor-pointer focus:border-cyan-400/50"
+                                      value={chosenReplacementId}
+                                      onChange={(e) => {
+                                        setSelectedReplacements({
+                                          ...selectedReplacements,
+                                          [sensor.id || '']: e.target.value
+                                        });
+                                      }}
+                                    >
+                                      <option value="" className="bg-[#1e293b]">-- Mantener actual (S/N: {sensor.serie}) --</option>
+                                      {filteredBodegaSensors.map(b => (
+                                        <option key={b.id} value={b.id} className="bg-[#1e293b]">
+                                          {b.nombre} [S/N: {b.serie}] ({b.marca} {b.modelo}) - en {locations.find(l => l.id === b.ubicacionId)?.centro || 'Bodega'}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </motion.div>
+                  )}
                 </div>
 
                 {/* Meta information panel (Location & Comments) */}
