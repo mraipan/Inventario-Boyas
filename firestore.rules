@@ -17,7 +17,7 @@ service cloud.firestore {
     }
 
     function getAuthEmail() {
-      return (request.auth != null && request.auth.token != null && request.auth.token.keys().hasAll(['email'])) 
+      return (request.auth != null && request.auth.token != null && 'email' in request.auth.token) 
         ? request.auth.token.email 
         : "anonymous_fallback@demo.com";
     }

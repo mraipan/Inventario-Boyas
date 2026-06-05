@@ -37,17 +37,19 @@ export function ChecklistReportView({ profile, user }: ChecklistReportViewProps)
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [locData, repData] = await Promise.all([
-        dbService.getLocations(),
-        dbService.getChecklistReports()
-      ]);
+      const locData = await dbService.getLocations();
       setLocations(locData || []);
+    } catch (err) {
+      console.error("Error al cargar ubicaciones:", err);
+    }
+
+    try {
+      const repData = await dbService.getChecklistReports();
       setReports(repData || []);
     } catch (err) {
-      console.error("Error al cargar datos de control de tareas:", err);
-    } finally {
-      setLoading(false);
+      console.error("Error al cargar historial de tareas:", err);
     }
+    setLoading(false);
   };
 
   const resetForm = () => {
