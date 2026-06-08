@@ -142,6 +142,10 @@ service cloud.firestore {
         && (data.get('cambioPanelesSolares', false) is bool)
         && (data.get('reemplazoBateriaBoya', false) is bool)
         && (data.get('reemplazoBateriaAdcp', false) is bool)
+        && (data.get('otrasTareas', false) is bool)
+        && (data.get('otrasTareasDetalle', '') is string && data.get('otrasTareasDetalle', '').size() <= 5000)
+        && (data.get('fechaReporte', '') is string && data.get('fechaReporte', '').size() <= 100)
+        && (data.get('sensoresCambiadosDetails', []) is list)
         && data.createdAt is timestamp
         && data.createdBy is string && data.createdBy.size() <= 128
         && data.creadoPorNombre is string && data.creadoPorNombre.size() <= 200
@@ -196,7 +200,7 @@ service cloud.firestore {
         && incoming().createdBy == existing().createdBy
         && (incoming().get('updatedAt', null) == request.time)
         && (
-          incoming().diff(existing()).affectedKeys().hasOnly(['observaciones', 'cambioSensores', 'limpiezaSensores', 'cambioTarjetaLora', 'cambioCableConexion', 'cambioPanelesSolares', 'reemplazoBateriaBoya', 'reemplazoBateriaAdcp', 'updatedAt'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['observaciones', 'cambioSensores', 'limpiezaSensores', 'cambioTarjetaLora', 'cambioCableConexion', 'cambioPanelesSolares', 'reemplazoBateriaBoya', 'reemplazoBateriaAdcp', 'otrasTareas', 'otrasTareasDetalle', 'fechaReporte', 'sensoresCambiadosDetails', 'updatedAt'])
         );
       
       allow delete: if isSignedIn();

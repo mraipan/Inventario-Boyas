@@ -71,7 +71,11 @@ export interface ChecklistReport {
   cambioPanelesSolares: boolean;
   reemplazoBateriaBoya: boolean;
   reemplazoBateriaAdcp: boolean;
+  otrasTareas?: boolean;
+  otrasTareasDetalle?: string;
   observaciones?: string;
+  fechaReporte?: string;
+  sensoresCambiadosDetails?: string[];
   createdAt: any;
   createdBy: string;
   creadoPorNombre: string;
