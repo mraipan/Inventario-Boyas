@@ -532,9 +532,14 @@ function ProductModal({ onClose, onSave, editingProduct, locations, products = [
                 onChange={(e) => setFormData({ ...formData, ubicacionId: e.target.value })}
               >
                 <option value="" className="bg-[#1e293b]">-- Sin Ubicación (En Stock) --</option>
-                {locations.map(l => (
-                  <option key={l.id} value={l.id} className="bg-[#1e293b]">{l.centro} ({l.region}) - {l.nombreCliente}</option>
-                ))}
+                {locations.map(l => {
+                  const displayAcs = l.acs ? ` - ${l.acs}` : '';
+                  return (
+                    <option key={l.id} value={l.id} className="bg-[#1e293b]">
+                      {l.centro}{displayAcs} ({l.region}) - {l.nombreCliente}
+                    </option>
+                  );
+                })}
               </select>
             </div>
             <div className="space-y-1.5">

@@ -155,7 +155,7 @@ export function ChecklistReportView({ profile, user }: ChecklistReportViewProps)
 
       const payload = {
         ubicacionId: selectedLocationId,
-        ubicacionCentro: locSelected.centro,
+        ubicacionCentro: locSelected.centro + (locSelected.acs ? ` - ${locSelected.acs}` : ''),
         ubicacionCliente: locSelected.nombreCliente,
         cambioSensores,
         limpiezaSensores,
@@ -266,11 +266,15 @@ export function ChecklistReportView({ profile, user }: ChecklistReportViewProps)
                     onChange={(e) => setSelectedLocationId(e.target.value)}
                   >
                     <option value="" className="bg-[#1e293b]">-- SELECCIONE UBICACIÓN --</option>
-                    {locations.map(loc => (
-                      <option key={loc.id} value={loc.id} className="bg-[#1e293b]">
-                        {loc.centro} {loc.nombreCliente ? `(${loc.nombreCliente})` : ''}
-                      </option>
-                    ))}
+                    {locations.map(loc => {
+                      const displayAcs = loc.acs ? ` - ${loc.acs}` : '';
+                      const displayClient = loc.nombreCliente ? ` (${loc.nombreCliente})` : '';
+                      return (
+                        <option key={loc.id} value={loc.id} className="bg-[#1e293b]">
+                          {loc.centro}{displayAcs}{displayClient}
+                        </option>
+                      );
+                    })}
                   </select>
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-30">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
@@ -440,7 +444,10 @@ export function ChecklistReportView({ profile, user }: ChecklistReportViewProps)
                           const loc = locations.find(l => l.id === selectedLocationId);
                           return (
                             <div>
-                              <p className="text-sm font-bold text-white">{loc?.centro}</p>
+                              <p className="text-sm font-bold text-white">
+                                {loc?.centro}
+                                {loc?.acs ? ` - ${loc.acs}` : ''}
+                              </p>
                               <p className="text-[10px] opacity-50 uppercase mt-0.5">{loc?.nombreCliente}</p>
                             </div>
                           );
@@ -582,7 +589,15 @@ export function ChecklistReportView({ profile, user }: ChecklistReportViewProps)
                           <div className="flex flex-wrap items-center gap-1.5 md:gap-3">
                             <div className="flex items-center gap-1 text-cyan-400">
                               <MapPin size={13} strokeWidth={2} />
-                              <span className="font-extrabold text-sm tracking-tight">{rep.ubicacionCentro}</span>
+                              <span className="font-extrabold text-sm tracking-tight">
+                                {(() => {
+                                  const matchingLoc = locations.find(l => l.id === rep.ubicacionId);
+                                  if (matchingLoc) {
+                                    return matchingLoc.centro + (matchingLoc.acs ? ` - ${matchingLoc.acs}` : '');
+                                  }
+                                  return rep.ubicacionCentro;
+                                })()}
+                              </span>
                             </div>
                             <span className="text-[10px] opacity-40 uppercase tracking-widest font-mono">({rep.ubicacionCliente})</span>
                           </div>

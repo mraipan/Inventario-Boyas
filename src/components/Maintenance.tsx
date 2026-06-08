@@ -184,11 +184,15 @@ export function Maintenance({ isReadOnly = false }: MaintenanceProps) {
                 className="w-full bg-[#1e293b]/80 border border-white/10 rounded-xl px-4 py-3 outline-none text-sm lg:text-base cursor-pointer focus:border-cyan-400/50 focus:ring-1 focus:ring-cyan-400/20 transition-all text-white font-medium"
               >
                 <option value="" className="bg-[#1e293b]">-- Seleccionar Boya o Centro --</option>
-                {locations.map((loc) => (
-                  <option key={loc.id} value={loc.id} className="bg-[#1e293b]">
-                    {loc.centro} ({loc.nombreCliente})
-                  </option>
-                ))}
+                {locations.map((loc) => {
+                  const displayAcs = loc.acs ? ` - ${loc.acs}` : '';
+                  const displayClient = loc.nombreCliente ? ` (${loc.nombreCliente})` : '';
+                  return (
+                    <option key={loc.id} value={loc.id} className="bg-[#1e293b]">
+                      {loc.centro}{displayAcs}{displayClient}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           </div>
@@ -205,7 +209,10 @@ export function Maintenance({ isReadOnly = false }: MaintenanceProps) {
                 <span className="text-[10px] font-mono uppercase tracking-widest font-bold">Detalles de Estación</span>
               </div>
               
-              <h3 className="text-lg font-bold tracking-tight mb-1">{selectedLocation.centro}</h3>
+              <h3 className="text-lg font-bold tracking-tight mb-1">
+                {selectedLocation.centro}
+                {selectedLocation.acs ? ` - ${selectedLocation.acs}` : ''}
+              </h3>
               <p className="text-xs opacity-50 mb-4 font-mono">{selectedLocation.nombreCliente}</p>
 
               <div className="space-y-3 pt-4 border-t border-white/5 text-xs">

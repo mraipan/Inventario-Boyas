@@ -376,11 +376,15 @@ export function SensorsPerBuoy({ isReadOnly = false }: SensorsPerBuoyProps) {
             onChange={(e) => setSelectedLocationId(e.target.value)}
           >
             <option value="all" className="bg-[#1e293b]">Todas las Ubicaciones</option>
-            {locations.map(loc => (
-              <option key={loc.id} value={loc.id} className="bg-[#1e293b]">
-                {loc.centro}
-              </option>
-            ))}
+            {locations.map(loc => {
+              const displayAcs = loc.acs ? ` - ${loc.acs}` : '';
+              const displayClient = loc.nombreCliente ? ` (${loc.nombreCliente})` : '';
+              return (
+                <option key={loc.id} value={loc.id} className="bg-[#1e293b]">
+                  {loc.centro}{displayAcs}{displayClient}
+                </option>
+              );
+            })}
             {unassigned.length > 0 && <option value="unassigned" className="bg-[#1e293b]">Sin Asignar</option>}
           </select>
           <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-30">
