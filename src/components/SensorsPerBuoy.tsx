@@ -221,6 +221,32 @@ export function SensorsPerBuoy({ isReadOnly = false }: SensorsPerBuoyProps) {
     }
   };
 
+  const handleDownloadTxt = (loc: Location, locProducts: Product[]) => {
+    const lines = locProducts.map(p => {
+      const nombre = (p.nombre || '').trim();
+      const marca = (p.marca || '').trim();
+      const modelo = (p.modelo || '').trim();
+      const profundidad = p.profundidad !== undefined ? `${p.profundidad}m` : '0m';
+      const serie = (p.serie || '').trim();
+      return `${nombre} ${marca} ${modelo} ${profundidad} ${serie}`;
+    });
+
+    const content = lines.join('\n');
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    
+    const displayAcs = loc.acs ? `_${loc.acs}` : '';
+    const safeCentro = loc.centro.replace(/[^a-zA-Z0-9_-]/g, '_');
+    link.download = `sensores_${safeCentro}${displayAcs}.txt`.toLowerCase();
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const getAvailableSensorsForLocation = (locationId: string) => {
     // Filter products that are not currently assigned to this location,
     // AND whose current location (centro) contains "bodega" (case-insensitive)
@@ -603,7 +629,15 @@ export function SensorsPerBuoy({ isReadOnly = false }: SensorsPerBuoyProps) {
                       </div>
                     </motion.div>
                   ) : (
-                    <div className="flex justify-end pt-1">
+                    <div className="flex justify-end items-center gap-3 pt-1">
+                      <button
+                        onClick={() => handleDownloadTxt(location, products)}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 hover:border-cyan-500/30 text-cyan-400 text-xs font-bold uppercase tracking-wider rounded-xl transition-all"
+                        title="Descargar listado de sensores en formato TXT"
+                      >
+                        <Download size={14} />
+                        <span>Obtener Archivo TXT</span>
+                      </button>
                       <button
                         onClick={() => {
                           setAddingForLocationId(location.id);
